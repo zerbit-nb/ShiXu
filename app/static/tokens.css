@@ -1,0 +1,36 @@
+/* CampusFlow quiet desktop system: one neutral ground, blue actions, semantic states. */
+:root {
+  --ink:#272d38;
+  --muted:#5f6877;
+  --subtle:#626d7b;
+  --paper:#fafbfc;
+  --surface:#fff;
+  --nav:#f0f2f5;
+  --line:#e6e9ef;
+  --control-line:#cbd1dc;
+  --primary:#2d60c7;
+  --primary-hover:#2455b6;
+  --primary-soft:#e8effd;
+  --hover:#f1f4f9;
+  --success:#247b54;
+  --success-soft:#eaf5ee;
+  --danger:#b34242;
+  --danger-soft:#fcf0ef;
+  --warning:#946010;
+  --warning-soft:#fcf4e4;
+  --focus:#5c86d6;
+  --focus-soft:#3269d619;
+  --overlay:#202b4140;
+  --radius:7px;
+  --radius-panel:12px;
+  --sidebar-width:220px;
+  --header-height:64px;
+  --quick:140ms;
+  --panel:220ms;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-ui:'Segoe UI Variable','Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;
+  font:14px/1.6 var(--font-ui);
+  color:var(--ink);
+  background:var(--paper);
+  color-scheme:light;
+}

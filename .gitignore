@@ -1,0 +1,47 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+config.local.json
+config.local.tmp
+qq.local.json
+qq.local.tmp
+.env
+test-results/
+node_modules/
+NapCat/
+runtime/
+
+wechat.local.json
+wechat.local.tmp
+
+# Generated Windows release installers
+releases/
+
+# Private configuration and local credentials
+*.local.json
+*.local.tmp
+.env.*
+*.pem
+*.key
+*.pfx
+*.sqlite*
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Local experiments, generated documents and brand candidates
+.taste-skill/
+wxauto4_plus/
+deliverables/
+assets/brand/shixu-candidates/
+assets/**/tmp/
+
+# Release outputs belong in GitHub Releases
+dist/
+build/
+*.zip
+*.exe
+*.dll

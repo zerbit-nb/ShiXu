@@ -1,0 +1,6 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><clipPath id="shixu-clip"><rect width="1024" height="1024" rx="224"/></clipPath></defs>
+<g clip-path="url(#shixu-clip)"><rect width="1024" height="1024" fill="#137D71"/>
+<path d="M254 452 Q254 420 286 420 H338 Q370 420 370 452 V560 Q370 668 478 668 H546 Q654 668 654 560 V452 Q654 420 686 420 H738 Q770 420 770 452 V560 Q770 784 546 784 H478 Q254 784 254 560 Z" fill="#FFFFFF"/>
+<rect x="406" y="208" width="212" height="212" rx="44" transform="rotate(-16 512 314)" fill="#FFFFFF"/></g>
+</svg>

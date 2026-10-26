@@ -1,0 +1,14 @@
+.wechat-control {margin-bottom:28px;padding:24px 28px}
+.wechat-control .panel-header h2 {font-size:16px;margin:0}
+.wechat-control-body {display:flex;align-items:center;justify-content:space-between;gap:24px}
+.wechat-control-body>div:first-child {min-width:0;overflow-wrap:anywhere}
+.wechat-control-actions {display:flex;flex-wrap:wrap;gap:8px;flex-shrink:0}
+#wechatState[data-state=listening] {color:var(--success);background:var(--primary-soft)}
+#wechatState[data-state=error],#wechatState[data-state=unknown] {color:var(--danger)}
+#wechatGap {color:var(--warning)}
+#wechatMessages {overflow-wrap:anywhere}
+@media(max-width:600px) {
+  .wechat-control {padding:20px 16px}
+  .wechat-control-body {align-items:stretch;flex-direction:column;gap:12px}
+  #wechatView .page-heading {align-items:flex-start;gap:16px}
+}

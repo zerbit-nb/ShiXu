@@ -1,0 +1,174 @@
+.qq-login-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center
+}
+.qq-login-dialog {
+  width:min(570px,calc(100vw - 32px))
+}
+.qq-login-dialog .settings-form {
+  padding:30px
+}
+.qq-login-summary {
+  padding:20px;
+  background:var(--hover);
+  border:0;
+  border-radius:8px;
+  margin:0 0 24px
+}
+.qq-login-summary strong {
+  display:block;
+  font-size:17px;
+  font-weight:600
+}
+.qq-login-summary p {
+  font-size:13px;
+  color:var(--muted);
+  margin:8px 0 0
+}
+.qq-login-summary:has([data-state=online]) {
+  background:var(--primary-soft)
+}
+.qq-login-summary:has([data-state=online]) strong {
+  color:var(--success)
+}
+.qq-login-summary:has([data-state=login_error],[data-state=exit_failed],[data-state=password_timeout]) {
+  background:var(--danger-soft)
+}
+.qq-login-summary:has([data-state=login_error],[data-state=exit_failed],[data-state=password_timeout]) strong {
+  color:var(--danger)
+}
+.qq-login-summary:has([data-state=device_verification],[data-state=device_scanned],[data-state=verification_required]) {
+  background:var(--warning-soft)
+}
+.qq-login-tabs {
+  display:flex;
+  gap:4px;
+  background:var(--hover);
+  padding:4px;
+  border-radius:7px;
+  margin-bottom:24px
+}
+.qq-login-tabs button {
+  flex:1;
+  border:0;
+  border-radius:4px;
+  background:transparent;
+  color:var(--muted);
+  padding:11px 8px;
+  white-space:nowrap;
+  font-size:13px;
+  min-height:42px;
+  transition:background var(--quick),color var(--quick)
+}
+.qq-login-tabs button[aria-selected=true] {
+  background:var(--surface);
+  color:var(--ink);
+  font-weight:600
+}
+.qq-login-tabs button:hover {
+  color:var(--primary)
+}
+.qq-qr-frame {
+  width:236px;
+  height:236px;
+  margin:0 auto 18px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line); /* taste-skill-ignore: QR code frame, not a decorative card */
+  background:var(--surface);
+  border-radius:8px
+}
+.qq-qr-frame img {
+  width:224px;
+  height:224px;
+  image-rendering:pixelated;
+  object-fit:contain
+}
+.qq-qr-frame span {
+  font-size:13px;
+  color:var(--muted)
+}
+.qq-scan-pane {
+  text-align:center
+}
+.qq-scan-pane p {
+  color:var(--muted);
+  font-size:13px;
+  margin:14px 0
+}
+.qq-scan-pane h3 {
+  font-size:18px;
+  margin:0 0 20px
+}
+.qq-login-footer {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  border-top:1px solid var(--line); /* taste-skill-ignore: login action separation */
+  margin-top:26px;
+  padding-top:18px
+}
+.qq-login-footer a {
+  font-size:13px
+}
+.qq-login-dialog input {
+  margin-bottom:18px
+}
+.qq-login-dialog .button {
+  min-height:44px
+}
+#qqPasswordSubmit,#qqQuickSubmit {
+  width:100%;
+  margin-top:8px
+}
+.qq-exit-area .field-hint {
+  margin:12px 0 0
+}
+.qq-exit-area {
+  margin-bottom:24px
+}
+.qq-exit-area:has(button[hidden]) {
+  display:none
+}
+.qq-quick-select {
+  display:flex;
+  gap:8px;
+  align-items:stretch
+}
+.qq-quick-select select {
+  flex:1;
+  min-width:0
+}
+.qq-quick-select button {
+  flex-shrink:0
+}
+@media(max-width:600px) {
+  .qq-login-dialog .settings-form {
+    padding:24px 18px
+  }
+  .qq-login-actions {
+    width:100%
+  }
+  .qq-login-actions>.button {
+    flex:1
+  }
+  .qq-qr-frame {
+    width:212px;
+    height:212px
+  }
+  .qq-qr-frame img {
+    width:200px;
+    height:200px
+  }
+  .qq-login-summary {
+    padding:16px
+  }
+  .qq-login-tabs button {
+    padding:10px 4px;
+    font-size:13px
+  }
+}
