@@ -1,0 +1,80 @@
+/* Real Chromium against disposable data and model fixtures; no cloud or live group messages. */
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {spawn,spawnSync}=require('node:child_process');
+(async()=>{
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'campusflow-workbench-')),base='http://127.0.0.1:8779',baseline=process.env.CAMPUSFLOW_BASELINE||'';
+ try{await fetch(base+'/api/health');throw new Error('Test port 8779 occupied');}catch(e){if(!e.cause||e.cause.code!=='ECONNREFUSED')throw e;}
+ const server=spawn(path.resolve('.venv/Scripts/python.exe'),['-B','-X','utf8','-c',"import uvicorn,sys;from pathlib import Path;from tests.workbench_app import make_app;uvicorn.run(make_app(Path(sys.argv[1]),sys.argv[2] or None),host='127.0.0.1',port=8779)",folder,baseline],{windowsHide:true,stdio:'pipe'});
+ let log='',browser;server.stderr.on('data',data=>log+=data);
+ const json=async url=>{const r=await fetch(base+url);assert.ok(r.ok,url);return r.json();};
+ try{
+  let ready=false;for(let i=0;i<80;i++){if(server.exitCode!==null)throw new Error(log);try{ready=(await fetch(base+'/api/health')).ok;}catch{}if(ready)break;await new Promise(r=>setTimeout(r,150));}assert.ok(ready,log);
+  browser=await chromium.launch({headless:true,executablePath:process.env.CAMPUSFLOW_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',m=>{if(['error','warning'].includes(m.type()))errors.push(m.text());});
+  const requestFailures=[];page.on('requestfailed',r=>requestFailures.push({url:r.url(),error:r.failure()?.errorText}));
+  const out='runtime/workbench-review';fs.mkdirSync(out,{recursive:true});
+  const screenshot=async name=>{await page.waitForFunction(()=>!document.querySelector('#toastRegion .toast'));await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.waitForTimeout(280);await page.screenshot({path:out+'/'+name+'.png',fullPage:false});};
+  await page.goto(base);await page.waitForLoadState('networkidle');
+  if(baseline){await page.locator('[data-view=tasks]').click();await page.locator('#taskList .task-row').first().waitFor();await screenshot('before-tasks');await page.locator('[data-view=inbox]').click();await screenshot('before-import');console.log('PASS: baseline screenshots captured from backed-up frontend using synthetic data');return;}
+  await page.locator('#taskList .task-row').first().waitFor();assert.ok(await page.locator('#tasksView').isVisible());assert.ok(await page.locator('#inboxView').isHidden());
+  await screenshot('after-tasks');
+  const first=page.locator('#taskList .task-row').filter({hasText:'提交软件工程项目阶段报告'}),id=await first.getAttribute('data-task-id');
+  await first.locator('.task-open').click();await page.waitForFunction(()=>document.querySelector('#taskDetailTitle')?.textContent==='提交软件工程项目阶段报告');
+  assert.equal(await page.locator('#taskDetail .detail-source').count(),2);assert.match(await page.locator('#taskDetailContent').innerText(),/测试清单/);assert.match(await page.locator('#taskDetailContent').innerText(),/QQ/);assert.match(await page.locator('#taskDetailContent').innerText(),/微信/);assert.equal(await page.locator('#taskDetail img').count(),0);await screenshot('after-detail');
+  assert.equal(await page.evaluate(()=>getComputedStyle(document.body).overflow),'visible');
+  await page.locator('#closeTaskDetail').click();
+  await page.route('**/api/tasks/'+id+'/sources',r=>r.fulfill({status:503,json:{detail:'测试来源暂不可用'}}));
+  await first.locator('.task-open').click();await page.getByText('来源读取失败：测试来源暂不可用。请重试。',{exact:true}).waitFor();assert.equal(await page.locator('#taskDetail .detail-source').count(),0);assert.ok(errors.pop().includes('503'));
+  await page.unroute('**/api/tasks/'+id+'/sources');await page.locator('[data-detail-action=refresh]').click();await page.waitForFunction(()=>document.querySelectorAll('#taskDetail .detail-source').length===2);
+
+  await page.locator('[data-detail-action=edit]').click();await page.locator('#editDialog [data-field=title]').fill('提交软件工程项目阶段报告（已核对）');await page.getByRole('button',{name:'保存修改',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#taskDetailTitle')?.textContent.includes('已核对'));
+  assert.equal((await json('/api/tasks/'+id+'/sources')).messages.length,2);
+  await page.locator('#closeTaskDetail').click();await first.locator('[data-task-action=complete]').click();await page.waitForFunction(id=>!document.querySelector('#taskList [data-task-id="'+id+'"]'),id);assert.ok(await page.locator('#taskDetail').isHidden());
+  await page.locator('[data-view=completed]').click();await page.locator('#taskList [data-task-id="'+id+'"]').waitFor();await screenshot('after-completed');await page.locator('#taskList [data-task-id="'+id+'"] .task-open').click();await page.locator('[data-detail-action=reopen]').click();await page.waitForFunction(()=>document.querySelector('#taskDetail .detail-status')?.textContent==='未完成');assert.equal((await json('/api/tasks/'+id+'/sources')).messages.length,2);await page.locator('#closeTaskDetail').click();
+  await page.locator('[data-view=tasks]').click();await page.locator('#taskList .task-row').filter({hasText:'整理本周阅读笔记'}).locator('.task-open').click();await page.getByText('暂无关联原文（手动创建）',{exact:true}).waitFor();await page.locator('#closeTaskDetail').click();
+  await page.locator('[data-view=upcoming]').click();await page.waitForFunction(()=>!document.querySelector('#taskList').hasAttribute('aria-busy'));await page.locator('#taskList .task-row').first().waitFor();assert.equal(await page.locator('#taskList [data-task-group=overdue]').count(),0);await screenshot('after-upcoming');
+  await page.locator('[data-view=messages]').click();await page.locator('[data-inbox-message]').first().waitFor();assert.equal(await page.locator('[data-inbox-message]').count(),30);await screenshot('after-messages');
+  await page.locator('[data-inbox-source=manual]').click();await page.locator('#inboxStatus').selectOption('failed');await page.locator('[data-inbox-action=analyze]').first().waitFor();
+  await page.locator('[data-inbox-action=analyze]').first().click();await page.waitForFunction(()=>document.querySelector('#inboxError').textContent.includes('模型返回内容不是合法 JSON'));assert.equal((await json('/api/tasks')).tasks.length,8);assert.equal(await page.locator('[data-inbox-message]').count(),1);
+  await page.locator('[data-inbox-source=all]').click();await page.locator('#inboxStatus').selectOption('all');await page.waitForFunction(()=>document.querySelectorAll('[data-inbox-message]').length===30);
+  await page.locator('[data-view=inbox]').click();await page.evaluate(()=>document.querySelector('.skip-link').focus());await page.keyboard.press('Enter');await page.waitForTimeout(50);assert.ok(await page.locator('#inboxView').isVisible());assert.ok(await page.locator('#mainContent').evaluate(e=>e===document.activeElement));await page.locator('[data-view=messages]').click();await page.waitForFunction(()=>document.querySelectorAll('[data-inbox-message]').length===30);
+  await page.locator('#inboxNext').click();await page.waitForFunction(()=>document.querySelector('#inboxPage').textContent==='第 2 页');assert.ok(await page.locator('[data-inbox-message]').count()>0);
+  await page.locator('[data-inbox-source=wechat]').click();await page.waitForFunction(()=>document.querySelector('#inboxPage').textContent==='第 1 页');assert.equal(await page.locator('#unifiedMessages .platform-label:not(.wechat)').count(),0);
+  await page.locator('#inboxStatus').selectOption('ignored');await page.waitForFunction(()=>document.querySelector('#inboxCount').textContent==='共 1 条消息');assert.match(await page.locator('#unifiedMessages').innerText(),/已忽略/);
+  await page.locator('#inboxStatus').selectOption('pending');await page.locator('[data-inbox-action=manual]').first().waitFor();await page.locator('[data-inbox-action=manual]').first().click();await page.locator('.draft-card').first().waitFor();assert.equal((await json('/api/tasks')).tasks.length,8);
+  await page.locator('.draft-card [data-field=title]').fill('统一收件箱微信核对任务');await page.locator('[data-action=check]').click();await page.waitForFunction(()=>document.querySelectorAll('.draft-card').length===0);assert.equal((await json('/api/tasks')).tasks.length,9);
+  await page.locator('[data-view=messages]').click();await page.locator('[data-inbox-source=qq]').click();await page.locator('#inboxStatus').selectOption('failed');await page.locator('[data-inbox-action=analyze]').first().waitFor();await page.locator('[data-inbox-action=trash]').first().click();await page.waitForFunction(()=>document.querySelector('#inboxCount').textContent==='共 0 条消息');
+  await page.locator('#inboxStatus').selectOption('pending');await page.locator('[data-inbox-action=manual]').first().waitFor();await page.locator('[data-inbox-action=manual]').first().click();await page.locator('.draft-card').first().waitFor();assert.equal((await json('/api/tasks')).tasks.length,9);await page.locator('.draft-card [data-field=title]').fill('保留未保存草稿');await screenshot('after-import');await page.locator('.draft-card').first().screenshot({path:out+'/after-review.png'});
+  await page.locator('[data-view=messages]').click();await page.locator('[data-inbox-source=all]').click();await page.locator('#inboxStatus').selectOption('processed');await page.locator('[data-inbox-task]').first().waitFor();await page.locator('[data-inbox-task]').first().click();await page.locator('#taskDetailTitle').waitFor();await page.locator('#closeTaskDetail').click();await page.locator('[data-inbox-action=review]').first().waitFor();await page.locator('[data-inbox-action=review]').first().click();assert.equal(await page.locator('.draft-card [data-field=title]').first().inputValue(),'保留未保存草稿');
+  for(const width of [320,390,768,1024,1440]){
+   await page.setViewportSize({width,height:900});
+   for(const view of ['tasks','messages','connections','qq','wechat','inbox']){await page.locator('[data-view='+view+']').click();await page.waitForTimeout(80);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),view+' overflow '+width);}
+   await page.locator('[data-view=tasks]').click();await page.locator('#taskList .task-row .task-open').first().click();await page.locator('#taskDetailTitle').waitFor();await page.waitForTimeout(260);assert.ok(await page.locator('#taskDetail').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}),'detail overflow '+width);if(width===390)await screenshot('after-detail-390');await page.keyboard.press('Escape');
+   if(width===390){await page.locator('[data-view=messages]').click();await screenshot('after-messages-390');}
+  }
+  await page.setViewportSize({width:1440,height:1000});await page.locator('[data-view=connections]').click();await screenshot('after-connections');
+  await page.locator('#connectionModelBtn').click();await screenshot('after-model-settings');await page.keyboard.press('Escape');
+  await page.locator('[data-view=qq]').click();await page.waitForFunction(()=>!document.querySelector('#checkBridge').disabled);await screenshot('after-qq');
+  await page.locator('[data-view=wechat]').click();await screenshot('after-wechat');
+  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#wechatStart').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
+  await page.goto(base);await page.locator('#tasksView .task-row').first().waitFor();assert.ok(await page.locator('#tasksView').isVisible());assert.equal((await json('/api/tasks/'+id+'/sources')).messages.length,2);
+  const beforeNew=(await json('/api/inbox')).total,beforeDrafts=(await json('/api/drafts')).drafts.length;
+  await page.locator('#quickAdd').click();await page.locator('#quickNewTask').click();
+  assert.equal((await json('/api/inbox')).total,beforeNew,'opening new task must not save placeholder messages');
+  await page.locator('#newTaskDialog').waitFor({state:'visible'});assert.equal(await page.locator('#newTaskDialog [data-field=title]').inputValue(),'');
+  await page.locator('#newTaskSubmit').click();await page.getByText('请填写任务标题。',{exact:true}).waitFor();assert.equal((await json('/api/drafts')).drafts.length,beforeDrafts);
+  await page.locator('#newTaskDialog [data-field=title]').fill('准备离散数学习题');await page.locator('#newTaskDialog [data-field=day]').fill('2026-10-25');await page.locator('#newTaskDialog [data-field=description]').fill('复习第五章');
+  for(const width of [320,390,768,1440]){await page.setViewportSize({width,height:width===390?844:900});await page.waitForTimeout(250);assert.ok(await page.locator('#newTaskDialog').evaluate(e=>e.scrollWidth<=e.clientWidth),'new task overflow '+width);assert.ok(await page.locator('#newTaskSubmit').evaluate(e=>{const r=e.getBoundingClientRect(),d=e.closest('dialog').getBoundingClientRect();return r.top>=d.top&&r.bottom<=d.bottom&&r.bottom<=innerHeight;}),'new task submit clipped '+width);if(width===390||width===1440)await page.screenshot({path:out+'/new-task-'+width+'.png'});}
+  await page.keyboard.press('Escape');assert.equal((await json('/api/inbox')).total,beforeNew);
+  await page.locator('#quickAdd').click();await page.locator('#quickNewTask').click();assert.equal(await page.locator('#newTaskDialog [data-field=title]').inputValue(),'准备离散数学习题');assert.equal((await json('/api/inbox')).total,beforeNew);
+  await page.route('**/api/messages/manual',r=>r.fulfill({status:503,json:{detail:'测试保存失败'}}));await page.locator('#newTaskSubmit').click();await page.getByText('测试保存失败',{exact:true}).waitFor();assert.equal((await json('/api/inbox')).total,beforeNew);assert.ok(errors.pop().includes('503'));await page.unroute('**/api/messages/manual');
+  let saves=0;await page.route('**/api/messages/manual',async r=>{saves++;await new Promise(resolve=>setTimeout(resolve,500));await r.continue();});
+  await page.locator('#newTaskSubmit').click();assert.equal(await page.locator('#newTaskSubmit').isDisabled(),true);await page.keyboard.press('Escape');assert.ok(await page.locator('#newTaskDialog').isVisible());
+  await page.locator('#newTaskDialog').waitFor({state:'hidden'});await page.unroute('**/api/messages/manual');assert.equal(saves,1);assert.equal((await json('/api/inbox')).total,beforeNew+1);assert.equal((await json('/api/drafts')).drafts.length,beforeDrafts+1);assert.equal((await json('/api/tasks')).tasks.length,9);
+  const created=page.locator('.draft-card').filter({hasText:'准备离散数学习题'});assert.equal(await created.locator('[data-field=title]').inputValue(),'准备离散数学习题');assert.equal(await created.locator('[data-field=day]').inputValue(),'2026-10-25');await created.locator('[data-action=check]').click();await page.waitForFunction(()=>document.querySelectorAll('.draft-card').length===1);assert.equal((await json('/api/tasks')).tasks.length,10);
+  await page.locator('#quickAdd').click();await page.locator('#quickNewTask').click();assert.equal(await page.locator('#newTaskDialog [data-field=title]').inputValue(),'');await page.locator('#closeNewTask').click();assert.equal((await json('/api/inbox')).total,beforeNew+1);
+  assert.deepEqual(requestFailures,[],JSON.stringify(requestFailures));assert.deepEqual(errors,[]);console.log('PASS: default task home; detail/source/edit/multiple sources/escaping; complete click isolation; restore and source retention; manual no-original; upcoming; unified source/status/paging/process/review; unsaved draft retention; 5 widths/all views; dialogs; quick create; reload; reduced motion; clean console. Synthetic fixtures only.');
+ }finally{if(browser)await browser.close();if(server.pid)spawnSync('taskkill',['/pid',String(server.pid),'/t','/f'],{windowsHide:true,stdio:'ignore'});fs.rmSync(folder,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;});
