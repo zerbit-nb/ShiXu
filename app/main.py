@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from contextlib import suppress
 from datetime import datetime
 import asyncio
 import json
@@ -34,6 +35,8 @@ from app.routers.qq_login import router as qq_login_router
 from app.routers.wechat import create_router as wechat_router
 from app.services.wechat_monitor import WeChatMonitor
 from app.services.wechat_store import init_storage as init_wechat_storage
+from app.services.auto_organize import AutoOrganizer
+from app.routers.automation import router as automation_router
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'app' / 'static'
@@ -63,21 +66,29 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
         app.state.model_lock = asyncio.Lock()
         app.state.bridge = BridgeMonitor(config_path.parent)
         app.state.qq_login = QQLogin(app.state.bridge)
+        app.state.automation = AutoOrganizer(app.state.db, settings, lambda: llm or LLMService(deepcopy(settings)), app.state.model_lock)
+        automation_task = asyncio.create_task(app.state.automation.run())
         try:
             yield
         finally:
+            automation_task.cancel()
             try:
-                result = await app.state.wechat.stop()
-                if result.get('reason') in {'cleanup_failed', 'config_write_failed'}:
-                    raise RuntimeError(result['reason'])
+                with suppress(asyncio.CancelledError):
+                    await automation_task
             finally:
-                app.state.qq_login.device.clear()
-                app.state.db.close()
+                try:
+                    result = await app.state.wechat.stop()
+                    if result.get('reason') in {'cleanup_failed', 'config_write_failed'}:
+                        raise RuntimeError(result['reason'])
+                finally:
+                    app.state.qq_login.device.clear()
+                    app.state.db.close()
 
-    api = FastAPI(title='CampusFlow', version='1.0.0', lifespan=lifespan)
+    api = FastAPI(title='CampusFlow', version='1.1.0', lifespan=lifespan)
     api.include_router(association_router)
     api.include_router(completed_router)
     api.include_router(inbox_router)
+    api.include_router(automation_router)
     api.include_router(qq_login_router)
     api.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
     model = llm or LLMService(settings)
@@ -97,7 +108,7 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
                 if (supplied.scheme, supplied.netloc) != (expected.scheme, expected.netloc):
                     return JSONResponse({'detail': '禁止来自其他网站的写入请求'}, status_code=403)
         response = await call_next(request)
-        if request.url.path.startswith(('/api/qq/login/','/api/wechat/')):
+        if request.url.path.startswith(('/api/qq/login/','/api/wechat/','/api/automation')):
             response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'"
@@ -154,7 +165,7 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
 
     @api.get('/api/health')
     async def health():
-        return {'status': 'ok', 'version': '1.0.0', 'timezone': 'Asia/Shanghai', 'model_configured': bool(settings.llm_model), 'application': 'CampusFlow', 'instance': hashlib.sha256(str(config_path.resolve()).encode()).hexdigest(), 'desktop_control': getattr(api.state, 'desktop_control', None)}
+        return {'status': 'ok', 'version': '1.1.0', 'timezone': 'Asia/Shanghai', 'model_configured': bool(settings.llm_model), 'application': 'CampusFlow', 'instance': hashlib.sha256(str(config_path.resolve()).encode()).hexdigest(), 'desktop_control': getattr(api.state, 'desktop_control', None)}
 
     @api.get('/api/config')
     async def config():
@@ -249,12 +260,15 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
         if view not in {'all','pending','completed','cancelled','today','week','no_deadline','overdue'}:
             raise HTTPException(422, '无效筛选项')
         remind_hours = max(0, min(remind_hours, 168))
-        values = [annotate(t, hours=remind_hours) | {'version': task_version(t)} for t in api.state.db.list_tasks(view)]
+        pending_review = api.state.automation.pending_task_ids()
+        values = [annotate(t, hours=remind_hours) | {'version': task_version(t), 'automation_pending': t['id'] in pending_review} for t in api.state.db.list_tasks(view)]
         return {'tasks': [t for t in values if matches_view(t, view)]}
 
     @api.get('/api/tasks/{task_id}')
     async def get_task(task_id: str):
-        return require(api.state.db.get_task(task_id), '任务')
+        task = require(api.state.db.get_task(task_id), '任务')
+        pending = api.state.automation.task_review_pending(task_id)
+        return task | {'automation_pending': pending} if pending is not None else task
 
     @api.patch('/api/tasks/{task_id}')
     async def patch_task(task_id: str, body: TaskPatch):

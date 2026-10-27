@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 from uuid import uuid4
+from contextlib import nullcontext
 
 
 def utc_now() -> str:
@@ -75,11 +76,11 @@ class Database:
         row = self.conn.execute('SELECT * FROM messages WHERE id=?', (message_id,)).fetchone()
         return dict(row) if row else None
 
-    def create_draft(self, message_id: str, fields: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+    def create_draft(self, message_id: str, fields: dict[str, Any], warnings: list[str], *, commit=True) -> dict[str, Any]:
         now = utc_now()
         row = {'id': uuid4().hex, 'message_id': message_id, 'fields_json': json.dumps(fields, ensure_ascii=False), 'warnings_json': json.dumps(warnings, ensure_ascii=False), 'status': 'pending', 'task_id': None, 'created_at': now, 'updated_at': now}
         self.conn.execute('INSERT INTO drafts VALUES (:id,:message_id,:fields_json,:warnings_json,:status,:task_id,:created_at,:updated_at)', row)
-        self.conn.commit()
+        if commit: self.conn.commit()
         return self.get_draft(row['id'])
 
     def get_draft(self, draft_id: str) -> dict[str, Any] | None:
@@ -96,7 +97,7 @@ class Database:
         self.conn.commit()
         return cur.rowcount == 1
 
-    def confirm_draft(self, draft_id: str, fields: dict[str, Any]) -> dict[str, Any] | None:
+    def confirm_draft(self, draft_id: str, fields: dict[str, Any], *, commit=True) -> dict[str, Any] | None:
         draft = self.get_draft(draft_id)
         if not draft:
             return None
@@ -108,7 +109,7 @@ class Database:
         task_id = uuid4().hex
         now = utc_now()
         row = {'id': task_id, 'message_id': draft['message_id'], 'draft_id': draft_id, 'title': fields['title'], 'description': fields.get('description'), 'deadline': fields.get('deadline'), 'deadline_precision': fields.get('deadline_precision', 'unknown'), 'deadline_text': fields.get('deadline_text'), 'location': fields.get('location'), 'target_audience': fields.get('target_audience'), 'materials_json': json.dumps(fields.get('materials', []), ensure_ascii=False), 'format_requirement': fields.get('format_requirement'), 'submit_method': fields.get('submit_method'), 'priority': fields.get('priority', 'normal'), 'status': 'pending', 'created_at': now, 'updated_at': now}
-        with self.conn:
+        with self.conn if commit else nullcontext():
             self.conn.execute('INSERT INTO tasks VALUES (:id,:message_id,:draft_id,:title,:description,:deadline,:deadline_precision,:deadline_text,:location,:target_audience,:materials_json,:format_requirement,:submit_method,:priority,:status,:created_at,:updated_at)', row)
             self.conn.execute("UPDATE drafts SET fields_json=?, status='confirmed', task_id=?, updated_at=? WHERE id=?", (json.dumps(fields, ensure_ascii=False), task_id, now, draft_id))
         return self._task(self.conn.execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone())

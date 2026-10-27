@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import subprocess
 from uuid import uuid4
 import httpx
 from app.services.desktop import server_state
@@ -109,12 +110,39 @@ def stop_backend(root,url='http://127.0.0.1:8000',timeout=45,require_verified=Fa
             finally:kernel.CloseHandle(process)
 
 
+def stop_desktop_napcat(root):
+    """Release this installation's NapCat files without changing login preferences."""
+    from app.services.bridge import find_installation
+    from app.services.napcat_session import stop_napcat, napcat_stopped
+    root=Path(root)
+    try:
+        installation=find_installation(root)
+        boots=set((root/'third_party/napcat').glob('*/NapCatWinBootMain.exe'))
+        boots.update((root/'NapCat').glob('**/NapCatWinBootMain.exe'))
+        if installation is None:
+            if boots:raise RuntimeError('Unrecognized NapCat installation')
+            return
+        boots.add(installation.boot)
+        for boot in sorted(boots):
+            stop_napcat(boot,root=root)
+            if not napcat_stopped(boot,root=root):
+                raise RuntimeError('NapCat still running')
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, subprocess.SubprocessError):
+        raise RuntimeError('拾序消息接收已停止，但 NapCat 后台退出尚未确认。窗口已保留，请再次选择托盘“退出 拾序”重试；仍失败时请运行 DiagnoseQQ.cmd 检查。') from None
+
+
 class BackendStopper:
     """Keep a failed shutdown from becoming success just because its port closed."""
     def __init__(self,root):
         self.root=root;self.require_verified=False
     def __call__(self):
-        try:stop_backend(self.root,require_verified=self.require_verified)
-        except Exception:
-            self.require_verified=True
-            raise
+        from app.services.desktop import startup_lock
+        # Block our launcher while shutting down. Window hiding never enters here.
+        with startup_lock(Path(self.root)/'runtime'):
+            try:stop_backend(self.root,require_verified=self.require_verified)
+            except Exception:
+                self.require_verified=True
+                raise
+            self.require_verified=False
+            # A retry after NapCat failure must still be able to clean its survivors.
+            stop_desktop_napcat(self.root)

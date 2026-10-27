@@ -54,12 +54,12 @@ def select_processes(boot, rows, qq_path=None):
         raise RuntimeError('Orphan NapCat process')
     return selected
 
-def napcat_command(boot):
+def napcat_command(boot, *, root=None):
     if os.name != 'nt': raise RuntimeError('NapCat exit requires Windows')
     script = Path(__file__).resolve().parents[2]/'scripts'/'stop_napcat.ps1'
     command = ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(script), '-BootPath', str(Path(boot).resolve())]
     from app.services.napcat_bundle import bundled_folder
-    root = Path(__file__).resolve().parents[2]
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[2]
     if Path(boot).resolve().parent == bundled_folder(root).resolve():
         record = root/'NapCat'/'managed'/'config'/'launch.json'
         if record.exists():
@@ -67,11 +67,13 @@ def napcat_command(boot):
             command += ['-QQPath', data['qq_path']]
     return command
 
-def napcat_stopped(boot):
-    result = subprocess.run(napcat_command(boot) + ['-CheckOnly', '-RequireStopped'],
+def napcat_stopped(boot, *, root=None):
+    command = napcat_command(boot) if root is None else napcat_command(boot, root=root)
+    result = subprocess.run(command + ['-CheckOnly', '-RequireStopped'],
         capture_output=True, timeout=20, env={k:v for k,v in os.environ.items() if k.lower() != 'psmodulepath'}, creationflags=subprocess.CREATE_NO_WINDOW)
     return result.returncode == 0
 
-def stop_napcat(boot):
-    result = subprocess.run(napcat_command(boot), capture_output=True, text=True, timeout=20, env={k:v for k,v in os.environ.items() if k.lower() != 'psmodulepath'}, creationflags=subprocess.CREATE_NO_WINDOW)
+def stop_napcat(boot, *, root=None):
+    command = napcat_command(boot) if root is None else napcat_command(boot, root=root)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=20, env={k:v for k,v in os.environ.items() if k.lower() != 'psmodulepath'}, creationflags=subprocess.CREATE_NO_WINDOW)
     if result.returncode != 0: raise RuntimeError('NapCat process stop failed')

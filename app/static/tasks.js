@@ -99,15 +99,38 @@ function renderTaskList(){
     const hint=query?'试试更短的关键词，或切换筛选条件。':state.filter==='pending'?'已完成任务可在“已完成”中查看或恢复。':state.filter==='completed'?'完成任务后会显示在此。':'试试其他筛选条件，或导入一条通知。';
     $('#taskList').innerHTML='<div class="empty"><strong>'+title+'</strong><span>'+hint+'</span></div>';return;
   }
-  let html='';
+  const automatic=state.route==='tasks'&&['pending','all'].includes(state.filter)?pending.filter(t=>t.automation_pending&&!taskDetailState.viewed.has(t.id)):[];
+  const automaticIds=new Set(automatic.map(t=>t.id));
+  const regular=pending.filter(t=>!automaticIds.has(t.id));
+  let html=taskGroupHtml('自动整理',automatic,{key:'automatic'});
   for(const [key,label] of [['overdue','已逾期'],['today','今天'],['week','未来 7 天'],['later','稍后'],['no_deadline','时间待定']]){
-    html+=taskGroupHtml(label,pending.filter(t=>taskDayGroup(t)===key),{key});
+    html+=taskGroupHtml(label,regular.filter(t=>taskDayGroup(t)===key),{key});
   }
   html+=taskGroupHtml('已完成',completed,{key:'completed',collapsed:state.filter==='all',query});
   html+=taskGroupHtml('已取消',cancelled,{key:'cancelled',collapsed:state.filter==='all',query});
   $('#taskList').innerHTML=html;
+  syncTaskDetailSelection();
+}
+function scrollTaskListToTop(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){window.scrollTo({top:0,behavior:'instant'});return;}
+  const from=scrollY,started=performance.now(),events=['wheel','touchstart','pointerdown','keydown'];
+  let frame;
+  const stop=()=>{cancelAnimationFrame(frame);events.forEach(name=>removeEventListener(name,stop));};
+  const step=now=>{
+    const progress=Math.min(1,(now-started)/320);
+    window.scrollTo({top:from*Math.pow(1-progress,3),behavior:'instant'});
+    if(progress<1)frame=requestAnimationFrame(step);else stop();
+  };
+  events.forEach(name=>addEventListener(name,stop,{passive:true}));
+  frame=requestAnimationFrame(step);
 }
 function initializeWorkbench(){
+  const backToTop=$('#taskBackToTop');
+  const updateBackToTop=()=>{backToTop.hidden=$('#tasksView').hidden||scrollY<240;};
+  backToTop.onclick=scrollTaskListToTop;
+  addEventListener('scroll',updateBackToTop,{passive:true});
+  new MutationObserver(updateBackToTop).observe($('#tasksView'),{attributes:true,attributeFilter:['hidden']});
+  updateBackToTop();
   const list=$('#taskList');for(const id of ['editDialog','sourceDialog'])$('#'+id).addEventListener('close',()=>{const row=[...list.querySelectorAll('[data-task-id]')].find(r=>r.dataset.taskId===state.dialogTask);row?.querySelector('.more-trigger')?.focus();});
   list.addEventListener('toggle',event=>{
     const menu=event.target;if(!menu.matches('.action-menu'))return;

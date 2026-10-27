@@ -19,17 +19,19 @@ function showView(route){
   for(const id of ['inbox','tasks','messages','connections','qq','wechat'])$('#'+id+'View').hidden=id!==view;
   document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===route;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $('#viewLabel').textContent=viewNames[route];
+  let taskLoad;
   if(taskView){
     state.filter=route==='completed'?'completed':'pending';
     document.querySelectorAll('[data-filter]').forEach(b=>{const active=b.dataset.filter===state.filter;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});
-    syncTaskNavigation();loadTasks();
+    syncTaskNavigation();taskLoad=loadTasks();
   }
   if(route==='messages')loadUnifiedInbox();
-  if(route==='connections')loadReceptionFilter();
+  if(route==='connections'){loadReceptionFilter();if(typeof loadAutomation==='function')loadAutomation();}
   if(route==='qq'){loadQQSettings().catch(e=>$('#qqError').textContent=e.message);loadQQInbox();loadBridgeStatus();}
   if(route==='wechat')loadWechatInbox();
   if(location.hash!=='#'+route)history.replaceState(null,'','#'+route);
   $('.main').scrollTop=0;
+  return taskLoad;
 }
 function initializeShell(){
   document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=uiIcon(el.dataset.icon));

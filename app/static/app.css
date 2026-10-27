@@ -182,6 +182,24 @@
 .main:focus {
   outline:none;
 }
+.task-back-to-top {
+  position:fixed;
+  right:8px;
+  bottom:20px;
+  z-index:15;
+  width:40px;
+  height:40px;
+  min-height:40px;
+  padding:0;
+  border-radius:50%;
+  color:var(--muted);
+}
+/* A dedicated gutter keeps the floating control clear of the task cards. */
+.main:has(>#tasksView:not([hidden])) {padding-right:60px;}
+@media(min-width:1100px) {
+  .detail-open .main:has(>#tasksView:not([hidden])) {padding-right:500px;}
+  .detail-open .task-back-to-top {right:448px;}
+}
 .view {
   max-width:1060px;
   margin:0 auto;
@@ -456,7 +474,7 @@
   padding:17px 18px;
   transition:background var(--quick),transform var(--quick);
 }
-.task-row:hover {
+.task-row:hover,.task-row.is-current {
   background:var(--hover);
 }
 .task-row:not(.qq-message) {

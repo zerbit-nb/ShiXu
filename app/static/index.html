@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/qq-login.css">
   <link rel="stylesheet" href="/static/wechat.css">
+  <link rel="stylesheet" href="/static/automation.css">
 
 </head>
 <body>
@@ -74,6 +75,7 @@
           </section>
           <div class="qq-layout"><section class="composer panel" aria-labelledby="wechatMessagesTitle"><div class="panel-header"><div><h2 id="wechatMessagesTitle">收到的消息</h2></div><button class="small-btn" id="refreshWechat" type="button">刷新</button></div><p id="wechatDestination" class="destination-notice"></p><p id="wechatInboxError" class="form-error" role="alert"></p><div id="wechatMessages"><div class="empty"><strong>正在读取消息…</strong></div></div><div class="qq-pagination"><button class="small-btn" id="wechatPrev" type="button" disabled>上一页</button><span id="wechatPage" role="status"></span><button class="small-btn" id="wechatNext" type="button" disabled>下一页</button></div></section></div>
         </section>
+        <button id="taskBackToTop" class="button secondary task-back-to-top" type="button" aria-label="回到任务列表顶部" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
       </main>
     </div>
   </div>
@@ -126,6 +128,12 @@
   <dialog id="editDialog" aria-labelledby="editTitle"><form id="editForm" class="settings-form"><div class="dialog-title"><div><h2 id="editTitle">编辑待办</h2></div><button class="close-btn" type="button" id="closeEdit" aria-label="关闭编辑">×</button></div><div id="editFields"></div><p id="editError" class="form-error" role="alert"></p><div class="settings-actions"><button class="button primary" type="submit">保存修改</button></div></form></dialog>
   <dialog id="newTaskDialog" aria-labelledby="newTaskTitle"><form id="newTaskForm" class="settings-form" novalidate><div class="dialog-title"><div><h2 id="newTaskTitle">新建待办</h2></div><button class="close-btn" type="button" id="closeNewTask" aria-label="关闭新建待办">×</button></div><div id="newTaskFields"></div><p id="newTaskError" class="form-error" role="alert"></p><div class="settings-actions"><button class="button secondary" type="button" id="cancelNewTask">取消</button><button class="button primary" type="submit" id="newTaskSubmit">保存并核对</button></div></form></dialog>
   <div id="toastRegion" role="status" aria-live="polite" aria-atomic="false"></div>
+  <dialog id="automationCard" class="automation-card" aria-labelledby="automationCardTitle" aria-describedby="automationCardSummary" hidden>
+    <header class="automation-panel-header"><div class="automation-card-heading"><span class="automation-mark" aria-hidden="true">✓</span><div><span class="automation-eyebrow">自动整理</span><h2 id="automationCardTitle">已整理为待办</h2></div></div><span class="automation-total" id="automationCardTotal"></span></header>
+    <div class="automation-panel-caption"><p id="automationCardSummary" role="status" aria-live="polite"></p><p id="automationCardProcessing" role="status" aria-live="polite" hidden></p></div>
+    <div id="automationCardScroll" class="automation-panel-scroll" tabindex="0" role="region" aria-label="自动整理的待办列表"><ul id="automationCardTasks"></ul></div>
+    <footer class="automation-panel-footer"><p id="automationCardError" class="form-error" role="alert"></p><div class="automation-card-actions"><span class="automation-panel-note">待办已保存，可逐项查看原文和详情。</span><button id="automationCardDismiss" type="button" class="button secondary" autofocus>知道了</button><button id="automationCardOpen" type="button" class="button primary">查看全部待办</button></div></footer>
+  </dialog>
   <script src="/static/icons.js" defer></script>
   <script src="/static/core.js" defer></script>
   <script src="/static/tasks.js" defer></script>
@@ -140,5 +148,6 @@
   <script src="/static/qq-quick.js" defer></script>
   <script src="/static/qq-login.js" defer></script>
   <script src="/static/connections.js" defer></script>
+  <script src="/static/automation.js" defer></script>
 </body>
 </html>

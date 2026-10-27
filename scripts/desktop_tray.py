@@ -1,7 +1,7 @@
 """WinForms tray adapter and testable close/exit policy."""
 import threading
 
-EXIT_MESSAGE='退出 拾序？未保存的编辑将丢失，QQ 和微信消息接收将停止。NapCat 登录及 QQ、微信客户端会保留。'
+EXIT_MESSAGE='退出 拾序？未保存的编辑将丢失，消息接收和自动整理将停止，并关闭本安装关联的 NapCat 后台及其 QQ 进程。独立运行的 QQ、微信客户端和已保存数据会保留。关闭窗口仅收起到托盘，后台继续运行。'
 
 
 class TrayController:

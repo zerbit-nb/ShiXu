@@ -155,6 +155,7 @@ async function manualDraft() {
 async function loadConfig(){
   try{const config=await api('/api/config');modelConfig=config;$('#provider').value=config.provider;previewProvider();$('#modelStatus').textContent=`${providerLabels[config.provider]} · ${config.llm_model?'已配置，待检测':'待配置'}`;$('#modelDot').className='status-dot offline';$('#destinationNotice').textContent=config.provider==='local'?'本地模型 · 通知在本机处理':`${providerLabels[config.provider]} · 分析时发送所选原文与发送时间`;$('.sidebar-note p').textContent='原文与待办保存在本机；云端仅发送本次分析的消息。';}
   catch(error){$('#modelStatus').textContent='后端连接失败';toast(error.message);}
+  if(typeof syncAutomationPrivacy==='function')syncAutomationPrivacy();
 }
 function previewProvider(){
   const provider=$('#provider').value,profile=modelConfig?.profiles[provider];

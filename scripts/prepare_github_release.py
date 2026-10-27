@@ -11,11 +11,11 @@ FILES = ('.gitignore', '.gitattributes', 'README.md', 'LICENSE.md', 'SECURITY.md
          'THIRD_PARTY_NOTICES.md', 'requirements.txt', 'requirements-desktop.txt',
          'requirements-wechat.txt', 'pytest.ini', 'StartCampusFlow.cmd',
          'StartCampusFlowDesktop.vbs', 'docs/github-first-release.md',
-         'docs/usage-v1.md', 'docs/release-v1.0.0.md')
-TREES = ('app', 'scripts', 'tests', 'packaging', 'third_party/wechat_db',
+         'docs/usage-v1.md', 'docs/release-v1.0.0.md', 'docs/release-v1.1.0.md')
+TREES = ('app', 'scripts', 'tests', 'packaging', 'third_party/wechat_db', 'docs/images',
          'assets/brand/windows')
 SUFFIXES = {'.py', '.js', '.cjs', '.css', '.html', '.svg', '.json', '.md',
-            '.txt', '.cmd', '.ps1', '.iss', '.ico'}
+            '.txt', '.cmd', '.ps1', '.iss', '.ico', '.png'}
 FORBIDDEN_PARTS = {'.git', '__pycache__', 'node_modules', '.venv', 'data', 'runtime'}
 SECRET = re.compile(r'(?:sk-[A-Za-z0-9_-]{24,}|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{24,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)')
 
@@ -40,7 +40,7 @@ def export(destination):
             raise ValueError('Refusing link or outside source: ' + str(path.relative_to(ROOT)))
         if '.local.' in path.name or path.suffix in {'.db', '.sqlite', '.log', '.key', '.pem'}:
             raise ValueError('Unexpected private file: ' + str(path.relative_to(ROOT)))
-        if path.suffix != '.ico' and SECRET.search(path.read_text(encoding='utf-8-sig')):
+        if path.suffix not in {'.ico', '.png'} and SECRET.search(path.read_text(encoding='utf-8-sig')):
             raise ValueError('Potential credential pattern; inspect locally: ' + str(path.relative_to(ROOT)))
     destination.mkdir(parents=True)
     entries = []
@@ -55,7 +55,7 @@ def export(destination):
     public = changelog.split('## 拾序 0.5.0-preview.10')[0].rstrip() + '\n'
     (destination / 'CHANGELOG.md').write_text(public, encoding='utf-8')
     entries.append({'path': 'CHANGELOG.md', 'sha256': hashlib.sha256((destination / 'CHANGELOG.md').read_bytes()).hexdigest()})
-    report = {'version': '1.0.0', 'files': entries, 'old_git_history_included': False,
+    report = {'version': '1.1.0', 'files': entries, 'old_git_history_included': False,
               'credential_pattern_scan': 'passed; heuristic only, manual review still required'}
     (destination.parent / 'source-audit.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({'source': str(destination), 'files': len(entries), 'bytes': sum(p.stat().st_size for p in destination.rglob('*') if p.is_file())}))

@@ -18,6 +18,53 @@ URL = 'http://127.0.0.1:8000'
 ICON_PATH = ROOT / 'assets' / 'brand' / 'windows' / 'shixu.ico'
 
 
+class WindowVisibilityBridge:
+    """Publish native visibility without exposing a JavaScript Python API."""
+    def __init__(self, window, stopped):
+        self.window, self.stopped = window, stopped
+        self.visible = False
+        self.loaded = threading.Event()
+        self.changed = threading.Event()
+        self.worker = None
+
+    def attach(self):
+        form = self.window.native
+        def update(*_):
+            self.visible = bool(form.Visible and str(form.WindowState) != 'Minimized' and form.ContainsFocus)
+            self.changed.set()
+        def deactivate(*_):
+            self.visible = False
+            self.changed.set()
+        form.Deactivate += deactivate
+        for name in ('Activated', 'VisibleChanged', 'Resize'):
+            event = getattr(form, name)
+            event += update
+        self.update = update
+        update()
+        self.worker = threading.Thread(target=self.publish, daemon=True)
+        self.worker.start()
+
+    def page_loaded(self):
+        self.loaded.set()
+        self.changed.set()
+
+    def publish(self):
+        while not self.stopped.is_set():
+            if not self.changed.wait(.25):
+                continue
+            if not self.loaded.is_set():
+                self.stopped.wait(.25)
+                continue
+            self.changed.clear()
+            value = 'true' if self.visible else 'false'
+            try:
+                self.window.run_js("window.dispatchEvent(new CustomEvent('shixu-window-state',{detail:" + value + "}));")
+            except Exception:
+                if not self.stopped.is_set():
+                    self.changed.set()
+                    self.stopped.wait(.25)
+
+
 
 def instance_name(root):
     digest = hashlib.sha256(os.path.normcase(str(Path(root).resolve())).encode()).hexdigest()
@@ -89,11 +136,12 @@ def open_window(view, instance=None):
     view.settings['ALLOW_DOWNLOADS'] = False
     view.settings['ALLOW_FILE_URLS'] = False
     view.settings['REMOTE_DEBUGGING_PORT'] = None
-    window = view.create_window('拾序', URL, width=1280, height=860,
+    window = view.create_window('拾序', URL + '/?desktop=1', width=1280, height=860,
                                 min_size=(800, 600), background_color='#f6f5f2', confirm_close=False)
     tray = WindowsTray(window)
     controller = TrayController(window, tray, BackendStopper(ROOT))
     stopped = threading.Event()
+    visibility = WindowVisibilityBridge(window, stopped)
     worker = None
 
     def closing():
@@ -105,6 +153,7 @@ def open_window(view, instance=None):
             return False
 
     def before_show():
+        visibility.attach()
         try:
             tray.install(controller)
         except Exception:
@@ -129,6 +178,7 @@ def open_window(view, instance=None):
 
     window.events.before_show += before_show
     window.events.shown += shown
+    window.events.loaded += visibility.page_loaded
     window.events.closing += closing
     window.events.closed += lambda: stopped.set()
     try:
@@ -137,6 +187,8 @@ def open_window(view, instance=None):
         stopped.set()
         if worker is not None:
             worker.join(timeout=2)
+        if visibility.worker is not None:
+            visibility.worker.join(timeout=2)
         tray.dispose()
 
 

@@ -1,6 +1,43 @@
-/* Read-through task detail; no duplicate task/source storage or optimistic mutations. */
-const taskDetailState={id:null,generation:0,trigger:null,busy:false};
-function closeTaskDetail(){const dialog=$('#taskDetail');if(dialog?.open)dialog.close();}
+/* Task/source detail; successful viewing persists only the automatic review marker. */
+const taskDetailState={id:null,generation:0,trigger:null,busy:false,viewed:new Set(),reviewing:new Set()};
+async function markTaskDetailViewed(task,generation){
+  if(!task.automation_pending||taskDetailState.viewed.has(task.id)||taskDetailState.reviewing.has(task.id))return;
+  taskDetailState.reviewing.add(task.id);
+  try{
+    await api('/api/automation/tasks/'+encodeURIComponent(task.id)+'/viewed',{method:'POST'});
+    taskDetailState.viewed.add(task.id);
+    for(const item of state.tasks||[])if(item.id===task.id)item.automation_pending=false;
+    if(state.tasksLoaded)renderTaskList();
+  }catch(error){
+    if(generation===taskDetailState.generation&&$('#taskDetail').open)$('#detailReviewError').textContent=error.message+' 点击“重新读取详情”重试。';
+  }finally{taskDetailState.reviewing.delete(task.id);}
+}
+function syncTaskDetailSelection(){
+  const current=$('#taskDetail')?.open?taskDetailState.id:null;
+  document.querySelectorAll('#taskList .task-row').forEach(row=>{
+    const selected=row.dataset.taskId===current;
+    row.classList.toggle('is-current',selected);
+    const trigger=row.querySelector('.task-open');
+    if(selected)trigger?.setAttribute('aria-current','true');
+    else trigger?.removeAttribute('aria-current');
+  });
+}
+function revealCurrentTask(generation){
+  // Wait for the side panel's padding transition before measuring the reclassified row.
+  setTimeout(()=>{
+    const dialog=$('#taskDetail');
+    if(generation!==taskDetailState.generation||!dialog.open||dialog.matches(':modal')||$('#tasksView').hidden)return;
+    const row=[...document.querySelectorAll('#taskList .task-row')].find(el=>el.dataset.taskId===taskDetailState.id);
+    if(!row)return;
+    const group=row.closest('details.task-group');if(group)group.open=true;
+    const rect=row.getBoundingClientRect(),header=$('.topbar').getBoundingClientRect().bottom+16;
+    if(rect.top<header||rect.bottom>innerHeight-72){
+      const offset=header+Math.max(0,(innerHeight-header-72-rect.height)/2);
+      window.scrollTo({top:Math.max(0,scrollY+rect.top-offset),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    }
+  },240);
+}
+function closeTaskDetail(){const dialog=$('#taskDetail');if(dialog?.open)dialog.close();document.body.classList.remove('detail-open');syncTaskDetailSelection();}
 function detailSourceHtml(messages){
   const available=(messages||[]).filter(Boolean);
   if(!available.length)return '<p class="field-hint">暂无关联原文</p>';
@@ -8,7 +45,8 @@ function detailSourceHtml(messages){
 }
 async function openTaskDetail(id,{refresh=false}={}){
   const dialog=$('#taskDetail');const generation=++taskDetailState.generation;taskDetailState.id=id;
-  if(!refresh){taskDetailState.trigger=document.activeElement;$('#taskDetailContent').innerHTML='<h2 id="taskDetailTitle">正在读取任务…</h2><div class="skeleton"><div></div><div></div></div>';if(!dialog.open){if(innerWidth>=1100){dialog.show();document.body.classList.add('detail-open');}else dialog.showModal();}$('#closeTaskDetail').focus();}
+  if(!refresh){taskDetailState.trigger=document.activeElement;$('#taskDetailContent').innerHTML='<h2 id="taskDetailTitle">正在读取任务…</h2><div class="skeleton"><div></div><div></div></div>';if(!dialog.open){if(innerWidth>=1100){dialog.show();document.body.classList.add('detail-open');}else dialog.showModal();}dialog.scrollTop=0;$('#closeTaskDetail').focus({preventScroll:true});}
+  syncTaskDetailSelection();
   try{
     const task=await api('/api/tasks/'+id);if(generation!==taskDetailState.generation)return;
     const results=await Promise.allSettled([api('/api/tasks/'+id+'/sources'),api('/api/tasks/'+id+'/history')]);
@@ -23,13 +61,15 @@ async function openTaskDetail(id,{refresh=false}={}){
     html+='<details class="detail-history"><summary>通知变更历史</summary>';
     if(history.status==='rejected')html+='<p class="form-error">历史读取失败：'+esc(history.reason.message)+'</p>';
     else html+=history.value.history.length?history.value.history.map(h=>'<div class="history-entry"><strong>'+esc(h.action==='cancel'?'取消任务':'更新期限')+'</strong><p>'+esc(h.action==='cancel'?'已确认取消':(h.before.deadline||'未确定')+' → '+(h.after.deadline||'未确定'))+'</p><small>'+esc(messageTime(h.confirmed_at))+'</small></div>').join(''):'<p class="field-hint">暂无通知变更记录。</p>';
-    html+='</details><button class="small-btn" data-detail-action="refresh">重新读取详情</button>';
+    html+='</details><p id="detailReviewError" class="form-error" role="alert"></p><button class="small-btn" data-detail-action="refresh">重新读取详情</button>';
     $('#taskDetailContent').innerHTML=html;
+    if(sources.status==='fulfilled')await markTaskDetailViewed(task,generation);
+    if(!refresh)revealCurrentTask(generation);
   }catch(error){if(generation!==taskDetailState.generation)return;$('#taskDetailContent').innerHTML='<h2 id="taskDetailTitle">无法读取任务</h2><p class="form-error">'+esc(error.message)+'</p><button class="small-btn" data-detail-action="refresh">重试</button>';}
 }
 document.addEventListener('DOMContentLoaded',()=>{
   const dialog=$('#taskDetail');$('#closeTaskDetail').onclick=closeTaskDetail;
-  dialog.addEventListener('close',()=>{++taskDetailState.generation;taskDetailState.id=null;document.body.classList.remove('detail-open');const button=taskDetailState.trigger;if(button?.isConnected)button.focus({preventScroll:true});else $('#taskSearch')?.focus({preventScroll:true});});
+  dialog.addEventListener('close',()=>{if(dialog.open)return;++taskDetailState.generation;taskDetailState.id=null;syncTaskDetailSelection();document.body.classList.remove('detail-open');const button=taskDetailState.trigger;if(button?.isConnected)button.focus({preventScroll:true});else $('#taskSearch')?.focus({preventScroll:true});});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialog.open&&!document.querySelector('#editDialog[open],#sourceDialog[open]')){e.preventDefault();closeTaskDetail();}});
   dialog.addEventListener('click',async e=>{
     const button=e.target.closest('[data-detail-action]');if(!button||taskDetailState.busy)return;

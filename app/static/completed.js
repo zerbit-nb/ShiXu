@@ -2,7 +2,8 @@
 const completedManager={active:false,busy:false,selected:new Map(),operation:null,trigger:null};
 function visibleTasks(){
  const query=$('#taskSearch').value.trim().toLocaleLowerCase();
- return (state.tasks||[]).filter(t=>[t.title,t.description,t.location,t.source_group].some(v=>String(v||'').toLocaleLowerCase().includes(query)));
+ const showAutomatic=state.route==='tasks'&&['pending','all'].includes(state.filter);
+ return (state.tasks||[]).filter(t=>(showAutomatic||t.status!=='pending'||!t.automation_pending||taskDetailState.viewed.has(t.id))&&[t.title,t.description,t.location,t.source_group].some(v=>String(v||'').toLocaleLowerCase().includes(query)));
 }
 function completedSelectionHtml(task){
  if(!completedManager.active||state.filter!=='completed')return '';

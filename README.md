@@ -4,10 +4,10 @@
 
 <p align="center">
   <a href="docs/usage-v1.md"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="平台：Windows 10 / 11"></a>
-  <a href="https://github.com/zerbit-nb/ShiXu/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/version-1.0.0-167D72?style=flat-square" alt="版本：1.0.0"></a>
+  <a href="https://github.com/zerbit-nb/ShiXu/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/version-1.1.0-167D72?style=flat-square" alt="版本：1.1.0"></a>
   <a href="https://github.com/zerbit-nb/ShiXu/releases/latest"><img src="https://img.shields.io/badge/download-Windows%20installer-2D60C7?style=flat-square" alt="下载 Windows 安装包"></a>
   <a href="#从源码运行"><img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square" alt="源码运行：Python 3.12"></a>
-  <a href="docs/release-v1.0.0.md#本次验证"><img src="https://img.shields.io/badge/local%20tests-348%20passed-27844A?style=flat-square" alt="1.0 发布前本地 Python 回归：348 项通过；不是在线 CI 状态"></a>
+  <a href="docs/release-v1.1.0.md#本次验证"><img src="https://img.shields.io/badge/local%20tests-384%20passed-27844A?style=flat-square" alt="1.1 发布前本地 Python 回归：384 项通过；不是在线 CI 状态"></a>
 </p>
 
 <h1 align="center">拾序 · Shixu</h1>
@@ -38,13 +38,13 @@
 
 ## 下载与安装
 
-前往 [Releases 下载页面](https://github.com/zerbit-nb/ShiXu/releases/latest)，下载 **`Shixu-1.0.0-win-x64-Setup.exe`**。GitHub 自动生成的 Source code 压缩包是源码，不是安装包。
+前往 [Releases 下载页面](https://github.com/zerbit-nb/ShiXu/releases/latest)，下载 **`Shixu-1.1.0-win-x64-Setup.exe`**。GitHub 自动生成的 Source code 压缩包是源码，不是安装包。
 
 - 内置 Python 和 NapCat v4.18.38，无需另装 Python；官方 QQ、微信需自行安装并登录。
 - 需要 Microsoft Edge WebView2 Runtime、.NET Framework 4.8。
 - 支持选择安装路径；安装结束关闭安装器，再从桌面或开始菜单打开拾序。
-- 更新前在应用中退出 NapCat，再从系统托盘退出拾序；备份安装目录的 `data`、`runtime` 和 `*.local.json`，选择原目录覆盖安装。
-- 安装包未签名，下载后可用 `Get-FileHash ./Shixu-1.0.0-win-x64-Setup.exe -Algorithm SHA256` 与 Release 中的校验值核对。
+- 1.1.0 从系统托盘完整退出即可；1.0 等旧版更新前先在应用中退出 NapCat，再从托盘退出拾序；备份安装目录的 `data`、`runtime` 和 `*.local.json`，选择原目录覆盖安装。
+- 安装包未签名，下载后可用 `Get-FileHash ./Shixu-1.1.0-win-x64-Setup.exe -Algorithm SHA256` 与 Release 中的校验值核对。
 
 ## 功能
 
@@ -54,9 +54,10 @@
 - 疑似重复核对、关联原文、通知确认的期限更新与取消历史。
 - 可恢复消息垃圾桶；可开关短应答接收过滤，默认关闭。
 - QQ 登录与退出、连接状态、内置 NapCat 管理和脱敏诊断。
-- 桌面窗口、托盘收起与完整退出。
+- 桌面窗口、托盘收起与完整退出；完整退出清理本安装关联的 NapCat。
+- 可开关自动整理待办，默认关闭，本地模型单独许可；托盘继续处理、前台合并提醒。云端自动整理会发送新消息文本并可能产生费用，AI 结果仍需核对。
 
-**1.0.0 以 preview.10 为功能基线。图片、文件分析尚未实现；正式版本号不代表所有电脑和客户端版本均已验证。**
+**1.1.0 新增可开关自动整理待办，并修复托盘退出后的 NapCat 清理。图片、文件分析尚未实现；各电脑和客户端版本兼容性仍需现场验证。**
 
 ## 界面预览
 
