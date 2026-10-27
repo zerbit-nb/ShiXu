@@ -19,7 +19,7 @@ const {spawn}=require('node:child_process');
   await page.waitForFunction(()=>!document.querySelector('#receptionFilterToggle').disabled);
   assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await page.locator('#receptionFilterStatus').innerText(),'已关闭');
   const copy=await page.locator('#connectionsView').innerText();assert.ok(!copy.includes('消息连接各自独立，任务统一整理。'));assert.ok(!copy.includes('仅在主动分析时调用模型；草稿需核对后创建待办。'));
-  assert.deepEqual(await page.locator('#connectionsView .connection-row h2').allTextContents(),['QQ','微信','模型服务','接收过滤','自动整理待办','允许本地模型自动整理']);
+  assert.deepEqual(await page.locator('#connectionsView .connection-row h2').allTextContents(),['QQ','微信','模型服务','接收过滤','自动整理','本地自动整理']);
   await page.route('**/api/inbox/filter',async route=>{if(route.request().method()==='PUT'){await new Promise(r=>setTimeout(r,500));}await route.continue();});
   await toggle.click();await page.waitForFunction(()=>document.querySelector('#receptionFilterStatus').textContent==='保存中…');assert.ok(await toggle.isDisabled());
   await page.waitForFunction(()=>document.querySelector('#receptionFilterToggle').getAttribute('aria-checked')==='true');assert.deepEqual(await config(),{enabled:true});

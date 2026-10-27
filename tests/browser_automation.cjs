@@ -14,7 +14,7 @@ const {spawn}=require('node:child_process');
   browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'/?desktop=1#connections');
-  const toggle=page.getByRole('switch',{name:'自动整理待办',exact:true}),local=page.getByRole('switch',{name:'允许本地模型自动整理',exact:true});
+  const toggle=page.getByRole('switch',{name:'自动整理',exact:true}),local=page.getByRole('switch',{name:'本地自动整理',exact:true});
   await page.waitForFunction(()=>!document.querySelector('#automationToggle')?.disabled);
   assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await local.getAttribute('aria-checked'),'false');
   await toggle.click();await page.waitForFunction(()=>document.querySelector('#automationStatus').textContent==='等待本地模型许可');
