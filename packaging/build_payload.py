@@ -78,7 +78,7 @@ def build(destination, napcat_shell):
         if file.name in {'config.local.json', 'qq.local.json', 'wechat.local.json'} or relative.startswith(('data/', 'runtime/')):
             raise ValueError('Private file detected in payload: ' + relative)
         entries.append({'path': relative, 'bytes': file.stat().st_size, 'sha256': hashlib.sha256(file.read_bytes()).hexdigest()})
-    manifest = {'app': 'Shixu', 'version': '1.0.0', 'napcat': napcat, 'python': sys.version.split()[0],
+    manifest = {'app': 'Shixu', 'version': '1.1.0', 'napcat': napcat, 'python': sys.version.split()[0],
                 'packages': packages, 'files': entries, 'private_data_included': False}
     (destination / 'release-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     (destination / 'THIRD-PARTY-NOTICES.txt').write_text(

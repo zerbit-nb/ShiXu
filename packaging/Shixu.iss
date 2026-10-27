@@ -8,8 +8,8 @@
 [Setup]
 AppId={{9A26F6DF-9213-4D37-8AB1-0C826146AC18}
 AppName=拾序
-AppVersion=1.0.0
-AppVerName=拾序 1.0
+AppVersion=1.1.0
+AppVerName=拾序 1.1.0
 AppPublisher=Shixu Project
 DefaultDirName={localappdata}\Programs\Shixu
 DefaultGroupName=拾序
@@ -20,7 +20,7 @@ MinVersion=10.0
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir={#Output}
-OutputBaseFilename=Shixu-1.0.0-win-x64-Setup
+OutputBaseFilename=Shixu-1.1.0-win-x64-Setup
 SetupIconFile={#Payload}\assets\brand\windows\shixu.ico
 UninstallDisplayIcon={app}\assets\brand\windows\shixu.ico
 Compression=lzma2
@@ -29,7 +29,7 @@ WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
 InfoBeforeFile={#SourcePath}FIRST-RUN.txt
-VersionInfoVersion=1.0.0.0
+VersionInfoVersion=1.1.0.0
 SetupLogging=yes
 
 [Languages]
@@ -98,7 +98,7 @@ begin
   if not ApplicationStopped() then
   begin
     if GuardCode = 10 then
-      Result := '检测到拾序或其 NapCat 后台仍在运行。请先退出 NapCat，再从托盘退出拾序后重试；安装器不会强制停止进程。'
+      Result := '检测到拾序或其 NapCat 后台仍在运行。请从托盘选择“退出 拾序”并等待完成后重试；旧版请先在应用内退出 NapCat。安装器不会强制停止进程。'
     else
       Result := '无法完成后台退出检查（检查码 ' + IntToStr(GuardCode) + '），未确认有程序正在运行。请保留安装日志供排查，不要删除数据或强制结束 QQ。';
   end;
@@ -108,5 +108,5 @@ function InitializeUninstall(): Boolean;
 begin
   Result := ApplicationStopped();
   if not Result then
-    MsgBox('无法安全卸载（检查码 ' + IntToStr(GuardCode) + '）。运行中请先退出 NapCat 和拾序；检查失败请保留日志，勿删除用户数据。', mbError, MB_OK);
+    MsgBox('无法安全卸载（检查码 ' + IntToStr(GuardCode) + '）。运行中请从托盘选择“退出 拾序”并等待完成；旧版请先退出 NapCat。检查失败请保留日志，勿删除用户数据。', mbError, MB_OK);
 end;

@@ -47,14 +47,14 @@ def test_no_python_api_and_explicit_close_semantics(monkeypatch):
         settings={}
         def create_window(self, title, url, **kwargs):
             calls.update(url=url, options=kwargs)
-            return SimpleNamespace(events=SimpleNamespace(**{name:Event(None) for name in ('before_show','shown','closing','closed')}))
+            return SimpleNamespace(events=SimpleNamespace(**{name:Event(None) for name in ('before_show','shown','loaded','closing','closed')}))
         def start(self, **kwargs):
             calls['start']=kwargs
     import scripts.desktop_tray as tray
     monkeypatch.setattr(tray.WindowsTray,'dispose',lambda self:None)
     view=View()
     open_window(view)
-    assert calls['url'] == 'http://127.0.0.1:8000'
+    assert calls['url'] == 'http://127.0.0.1:8000/?desktop=1'
     assert calls['options']['confirm_close'] is False
     assert 'js_api' not in calls['options']
     assert calls['start']['gui'] == 'edgechromium'

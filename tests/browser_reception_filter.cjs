@@ -19,7 +19,7 @@ const {spawn}=require('node:child_process');
   await page.waitForFunction(()=>!document.querySelector('#receptionFilterToggle').disabled);
   assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await page.locator('#receptionFilterStatus').innerText(),'已关闭');
   const copy=await page.locator('#connectionsView').innerText();assert.ok(!copy.includes('消息连接各自独立，任务统一整理。'));assert.ok(!copy.includes('仅在主动分析时调用模型；草稿需核对后创建待办。'));
-  assert.deepEqual(await page.locator('#connectionsView .connection-row h2').allTextContents(),['QQ','微信','模型服务','接收过滤']);
+  assert.deepEqual(await page.locator('#connectionsView .connection-row h2').allTextContents(),['QQ','微信','模型服务','接收过滤','自动整理待办','允许本地模型自动整理']);
   await page.route('**/api/inbox/filter',async route=>{if(route.request().method()==='PUT'){await new Promise(r=>setTimeout(r,500));}await route.continue();});
   await toggle.click();await page.waitForFunction(()=>document.querySelector('#receptionFilterStatus').textContent==='保存中…');assert.ok(await toggle.isDisabled());
   await page.waitForFunction(()=>document.querySelector('#receptionFilterToggle').getAttribute('aria-checked')==='true');assert.deepEqual(await config(),{enabled:true});
@@ -35,7 +35,7 @@ const {spawn}=require('node:child_process');
   await toggle.click();await page.waitForFunction(()=>document.querySelector('#receptionFilterStatus').textContent==='已开启');
   for(const width of [320,390,768,1024,1440]){
    await page.setViewportSize({width,height:1000});await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'page overflow '+width);
-   assert.ok(await page.locator('.reception-filter-row').evaluate(el=>el.scrollWidth<=el.clientWidth),'filter row overflow '+width);
+   assert.ok(await toggle.evaluate(el=>{const row=el.closest('.connection-row');return row.scrollWidth<=row.clientWidth;}),'filter row overflow '+width);
    const control=await toggle.boundingBox();assert.ok(control.width>=40&&control.height>=24);
    if([390,1440].includes(width))await page.screenshot({path:output+'/settings-'+width+'.png',fullPage:true});
   }

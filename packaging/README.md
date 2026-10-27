@@ -1,6 +1,6 @@
 # Windows 安装包构建
 
-当前版本：拾序 1.0.0。保持 preview.10 业务功能，使用 Python/FastAPI/pywebview 与 Inno Setup。
+当前版本：拾序 1.1.0。包含自动整理、详情定位及托盘完整退出修复，使用 Python/FastAPI/pywebview 与 Inno Setup。
 
 ## 构建环境
 
@@ -15,11 +15,11 @@
 在仓库根目录运行，stage 必须是未创建的新目录：
 
 ```powershell
-..venvScriptspython.exe -B packaging/build_payload.py --stage runtime/package-build/v1-clean --napcat-shell runtime/napcat-vendor/NapCat.Shell.zip
-$payload = (Resolve-Path runtime/package-build/v1-clean).Path
+.venv/Scripts/python.exe -B packaging/build_payload.py --stage runtime/package-build/v1.1.0-clean --napcat-shell runtime/napcat-vendor/NapCat.Shell.zip
+$payload = (Resolve-Path runtime/package-build/v1.1.0-clean).Path
 $output = Join-Path $PWD 'releases'
-& 'C:Program Files (x86)Inno Setup 6ISCC.exe' "/DPayload=$payload" "/DOutput=$output" packaging/Shixu.iss
-Get-FileHash releases/Shixu-1.0.0-win-x64-Setup.exe -Algorithm SHA256
+& 'C:/Program Files (x86)/Inno Setup 6/ISCC.exe' "/DPayload=$payload" "/DOutput=$output" packaging/Shixu.iss
+Get-FileHash releases/Shixu-1.1.0-win-x64-Setup.exe -Algorithm SHA256
 ```
 
 编译器路径请按实际安装位置调整。不要在 stage 中运行应用，避免污染发布文件。版本调整需同步 app/main.py、packaging/build_payload.py、packaging/Shixu.iss 与 FIRST-RUN.txt。
@@ -32,12 +32,12 @@ Inno 安装器允许选择路径，以当前用户权限运行，无需管理员
 
 ## 验证
 
-先执行 `..venvScriptspython.exe -m pytest -q`。安装验证必须使用无现有已注册安装的测试环境、独立目录和合成数据，检查新安装、启动与退出、接收过滤、重启保存、覆盖升级及卸载保留数据。不要在自己的真实数据库上执行清理或卸载测试。
+先执行 `.venv/Scripts/python.exe -m pytest -q`。安装验证必须使用无现有已注册安装的测试环境、独立目录和合成数据，检查新安装、启动与退出、接收过滤、重启保存、覆盖升级及卸载保留数据。不要在自己的真实数据库上执行清理或卸载测试。
 
 源码清理导出命令：
 
 ```powershell
-..venvScriptspython.exe -B scripts/prepare_github_release.py --destination releases/github-v1.0.0/Shixu
+.venv/Scripts/python.exe -B scripts/prepare_github_release.py --destination releases/github-v1.1.0/Shixu
 ```
 
 导出拒绝覆盖目录；只使用明确清单，不复制旧 Git 历史。导出仍需人工检查，不是安全或许可合规保证。源码和安装包分别发布：源码进入仓库，安装包及 SHA256 进入 GitHub Releases。
