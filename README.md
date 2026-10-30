@@ -17,7 +17,8 @@
   <a href="https://github.com/zerbit-nb/ShiXu/releases/latest">下载安装包</a> ·
   <a href="#界面预览">界面预览</a> ·
   <a href="docs/usage-v1.md">使用说明</a> ·
-  <a href="#从源码运行">从源码运行</a>
+  <a href="#从源码运行">从源码运行</a> ·
+  <a href="packaging/licenses/NapCat.txt">NapCat 有限再分发许可</a>
 </p>
 
 多源消息驱动的智能待办管理助手。将 QQ、微信文本通知与手动导入内容汇入同一收件箱，经模型提取或手动整理、人工核对后生成待办。面向 Windows 10/11 x64，本地单用户运行。
@@ -150,4 +151,6 @@ Python 测试使用临时数据库和替身，不代表真实模型准确率或�
 
 项目原创源代码及随附文档，除另有说明外，采用 [Apache-2.0](LICENSE.md)。使用、修改和再分发应遵守许可证，保留相关声明并注明文件修改，详见 [许可适用范围](LICENSE_SCOPE.md) 和 [NOTICE](NOTICE)。
 
-第三方资源继续遵守各自原许可，见 [第三方资源说明](THIRD_PARTY_NOTICES.md)。内置 NapCat 受有限再分发许可及非商业用途限制，**不能因原创代码采用 Apache-2.0，就将含 NapCat 的完整安装包视为可自由商用或统一授权**。本次许可变更不改写旧版发布制品。
+第三方资源继续遵守各自原许可，见 [第三方资源说明](THIRD_PARTY_NOTICES.md)。本次许可变更不改写旧版发布制品。
+
+NapCat 受有限再分发许可及非商业用途限制，其具体许可见 [NapCat 有限再分发许可](packaging/licenses/NapCat.txt)。
