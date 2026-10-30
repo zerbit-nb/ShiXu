@@ -4,11 +4,8 @@
 
 <p align="center">
   <a href="docs/usage-v1.md"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="平台：Windows 10 / 11"></a>
-  <a href="https://github.com/zerbit-nb/ShiXu/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/version-1.1.0-167D72?style=flat-square" alt="版本：1.1.0"></a>
   <a href="https://github.com/zerbit-nb/ShiXu/releases/latest"><img src="https://img.shields.io/badge/download-Windows%20installer-2D60C7?style=flat-square" alt="下载 Windows 安装包"></a>
   <a href="LICENSE_SCOPE.md"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="原创代码许可：Apache-2.0；第三方组件另遵原许可"></a>
-  <a href="#从源码运行"><img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square" alt="源码运行：Python 3.12"></a>
-  <a href="docs/release-v1.1.0.md#本次验证"><img src="https://img.shields.io/badge/local%20tests-384%20passed-27844A?style=flat-square" alt="1.1 发布前本地 Python 回归：384 项通过；不是在线 CI 状态"></a>
 </p>
 
 <h1 align="center">拾序 · Shixu</h1>
