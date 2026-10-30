@@ -23,7 +23,7 @@
 2. 在 Changes 中检查待提交列表：应为 app、scripts、tests、packaging、文档和 requirements 等。不能出现 config.local.json、qq.local.json、wechat.local.json、数据库、聊天、二维码、runtime、.venv、Setup.exe 或 source-audit.json。
 3. Summary 填 `chore: prepare Shixu 1.0.0 release`，点击 Commit to main。先检查再提交，不要只依赖 .gitignore。
 4. 点击 Publish repository，Name 建议 `Shixu`；Description 可填“拾序：多源消息驱动的智能待办管理助手”。第一次建议保留 Keep this code private，先发布为私有仓库。
-5. 点击 View on GitHub，确认 README 能显示、文件完整、没有隐私内容。当前 LICENSE.md 是权利说明，不是 MIT 等开放授权；暂不在 GitHub 添加通用许可证。
+5. 点击 View on GitHub，确认 README 能显示、文件完整、没有隐私内容。项目原创部分已采用 Apache-2.0；上传 LICENSE.md、NOTICE、LICENSE_SCOPE.md 与 THIRD_PARTY_NOTICES.md，保留第三方许可，不再用网页模板覆盖这些文件。
 6. 确认需要公开后，在仓库 Settings → General → Danger Zone → Change repository visibility 中改为 Public，按 GitHub 提示确认。公开后内容可能被复制，重新设为私有不能收回别人的副本。也可以先保持私有继续核对。
 
 不需要先在网页创建另一个同名仓库。如果网页已创建同名仓库，先不要重复 Publish；可换一个空名称或按 GitHub Desktop 的克隆流程重新准备，避免误合并历史。
@@ -51,7 +51,7 @@
 
 ## 许可与反馈
 
-公开源码不自动等于授予商用或再分发许可。内置 NapCat 限非商业用途，各第三方许可保留。若想将原创部分正式开源，需先确认团队授权，再选择合适许可，不能覆盖第三方原许可。
+项目原创源代码及随附文档，除另有说明外，采用 Apache-2.0，详见仓库根目录的 LICENSE.md、NOTICE 和 LICENSE_SCOPE.md。内置 NapCat 继续限非商业用途，其他第三方许可保留；不要将完整安装包标为统一采用 Apache-2.0。许可变更只更新当前源码修订，旧标签与已发布安装包保持原样。
 
 启用 Issues 收集问题时，要求提供拾序版本、Windows/QQ/微信版本、复现步骤和脱敏错误码；不要索取密码、令牌或完整聊天。SECURITY.md 中有隐私说明。
 

@@ -33,6 +33,8 @@ def build(destination, napcat_shell):
     shutil.copytree(ROOT / 'assets' / 'brand' / 'windows', destination / 'assets' / 'brand' / 'windows')
     shutil.copy2(ROOT / 'packaging' / 'package_guard.py', destination / 'package_guard.py')
     shutil.copy2(ROOT / 'packaging' / 'FIRST-RUN.txt', destination / 'FIRST-RUN.txt')
+    for name in ('LICENSE.md', 'NOTICE', 'LICENSE_SCOPE.md', 'THIRD_PARTY_NOTICES.md'):
+        shutil.copy2(ROOT / name, destination / name)
     python = destination / 'python'
     python.mkdir()
     base = Path(sys.base_prefix)
@@ -82,6 +84,7 @@ def build(destination, napcat_shell):
                 'packages': packages, 'files': entries, 'private_data_included': False}
     (destination / 'release-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     (destination / 'THIRD-PARTY-NOTICES.txt').write_text(
+        'Shixu original code: Apache-2.0; see LICENSE.md, NOTICE and LICENSE_SCOPE.md. Third-party components retain their own terms.' + chr(10) +
         'Python license: python/LICENSE.txt' + chr(10) +
         'WeChat read-only component: third_party/wechat_db/LICENSE and NOTICE.md' + chr(10) +
         'Python packages retain their dist-info licenses and metadata under python/Lib/site-packages.' + chr(10) +

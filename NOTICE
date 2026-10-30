@@ -1,0 +1,12 @@
+Shixu
+Copyright 2026 Shixu contributors
+
+Original source code and accompanying documentation in this repository,
+unless otherwise stated, are licensed under the Apache License, Version 2.0.
+See LICENSE.md for the full license and LICENSE_SCOPE.md for scope information.
+
+Third-party components retain their own licenses and attribution notices.
+See THIRD_PARTY_NOTICES.md and the license files supplied with each component.
+In particular, the bundled NapCat component is subject to its own Limited
+Redistribution License, including a non-commercial-use restriction; it is not
+relicensed under Apache-2.0 by this project.

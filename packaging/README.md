@@ -28,6 +28,8 @@ Get-FileHash releases/Shixu-1.1.0-win-x64-Setup.exe -Algorithm SHA256
 
 build_payload.py 只复制应用、指定脚本、图标、固定微信模块、运行时依赖和经过哈希校验的未修改 NapCat 发行组件。源码目录中的 data、runtime、*.local.json、虚拟环境、模型、QQ/微信客户端不进入包。release-manifest.json 记录版本、文件哈希和依赖；哈希不是数字签名，也不保证逐字节可重现构建。
 
+构建会附带 LICENSE.md、NOTICE、LICENSE_SCOPE.md 与 THIRD_PARTY_NOTICES.md。Apache-2.0 适用于项目原创源代码及随附文档，第三方仍遵守原许可；包含 NapCat 的完整安装包继续受其非商业用途等限制。
+
 Inno 安装器允许选择路径，以当前用户权限运行，无需管理员权限。安装后不直接启动应用；请关闭安装器，从桌面或开始菜单打开。升级使用新包自带的只读运行检查，检查码 10 为运行中，20 为无法确认；不强制杀进程或关闭系统安全保护。卸载保留生成的数据和配置。
 
 ## 验证

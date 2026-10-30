@@ -7,7 +7,8 @@ import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = ('.gitignore', '.gitattributes', 'README.md', 'LICENSE.md', 'SECURITY.md',
+FILES = ('.gitignore', '.gitattributes', 'README.md', 'LICENSE.md', 'NOTICE',
+         'LICENSE_SCOPE.md', 'SECURITY.md',
          'THIRD_PARTY_NOTICES.md', 'requirements.txt', 'requirements-desktop.txt',
          'requirements-wechat.txt', 'pytest.ini', 'StartCampusFlow.cmd',
          'StartCampusFlowDesktop.vbs', 'docs/github-first-release.md',

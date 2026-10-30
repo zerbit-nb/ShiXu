@@ -6,6 +6,7 @@
   <a href="docs/usage-v1.md"><img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square" alt="平台：Windows 10 / 11"></a>
   <a href="https://github.com/zerbit-nb/ShiXu/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/version-1.1.0-167D72?style=flat-square" alt="版本：1.1.0"></a>
   <a href="https://github.com/zerbit-nb/ShiXu/releases/latest"><img src="https://img.shields.io/badge/download-Windows%20installer-2D60C7?style=flat-square" alt="下载 Windows 安装包"></a>
+  <a href="LICENSE_SCOPE.md"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="原创代码许可：Apache-2.0；第三方组件另遵原许可"></a>
   <a href="#从源码运行"><img src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square" alt="源码运行：Python 3.12"></a>
   <a href="docs/release-v1.1.0.md#本次验证"><img src="https://img.shields.io/badge/local%20tests-384%20passed-27844A?style=flat-square" alt="1.1 发布前本地 Python 回归：384 项通过；不是在线 CI 状态"></a>
 </p>
@@ -150,4 +151,6 @@ Python 测试使用临时数据库和替身，不代表真实模型准确率或�
 
 ## 来源与许可
 
-本仓库公开展示源码，当前未对项目原创部分授予额外复制、修改或再分发许可，不应视为已采用 MIT 等开源许可证。第三方部分按各自原许可处理，见 [许可说明](LICENSE.md) 和 [第三方资源说明](THIRD_PARTY_NOTICES.md)。内置 NapCat 为有限再分发许可、仅限非商业用途，不应将整个安装包声明为 MIT。
+项目原创源代码及随附文档，除另有说明外，采用 [Apache-2.0](LICENSE.md)。使用、修改和再分发应遵守许可证，保留相关声明并注明文件修改，详见 [许可适用范围](LICENSE_SCOPE.md) 和 [NOTICE](NOTICE)。
+
+第三方资源继续遵守各自原许可，见 [第三方资源说明](THIRD_PARTY_NOTICES.md)。内置 NapCat 受有限再分发许可及非商业用途限制，**不能因原创代码采用 Apache-2.0，就将含 NapCat 的完整安装包视为可自由商用或统一授权**。本次许可变更不改写旧版发布制品。
