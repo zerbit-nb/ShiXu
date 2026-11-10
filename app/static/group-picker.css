@@ -1,0 +1,46 @@
+/* Group selection uses the same quiet surfaces and blue controls as settings. */
+/* The rounded frame never scrolls; its inset form owns the scrollbar. */
+:is(#wechatSettingsDialog,#qqSettingsDialog) {width:min(560px,calc(100% - 32px));border-radius:22px;padding:12px 8px 12px 12px;overflow:hidden}
+:is(#wechatForm,#qqForm) {max-height:calc(100dvh - 74px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:14px 20px 12px 16px}
+@media(max-width:480px) {
+  :is(#wechatForm,#qqForm) {padding:10px 10px 10px 6px}
+}
+.group-picker {position:relative;min-width:0;margin:6px 0 18px}
+.group-search-row {display:flex;align-items:center;gap:8px;min-height:42px;border:1px solid var(--control-line);border-radius:var(--radius);padding:5px 7px 5px 12px;background:var(--surface)}
+.group-search-row:focus-within {border-color:var(--focus);box-shadow:0 0 0 3px var(--focus-soft)}
+.group-search-icon {color:var(--muted);font-size:22px;line-height:1;flex:none}
+.group-search-row input {min-width:0;flex:1;border:0!important;box-shadow:none!important;padding:4px 0!important;background:transparent!important;outline:none}
+.group-search-row>.small-btn {flex:none;margin:0;font-size:12px;min-height:30px;padding:3px 10px}
+.group-results {position:absolute;top:47px;left:0;right:0;z-index:4;max-height:240px;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:var(--radius);padding:4px;background:var(--surface);box-shadow:0 8px 24px #202b4114}
+.group-results[hidden] {display:none}
+.group-result {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:5px;background:transparent;color:var(--ink)}
+.group-result:hover,.group-result:focus-visible {background:var(--hover)}
+.group-result>span {min-width:0;overflow-wrap:anywhere;font-size:13px}
+.group-result>small {color:var(--muted);font-size:11px;max-width:42%;overflow-wrap:anywhere;flex-shrink:0}
+.group-results-empty {margin:0;padding:10px;font-size:12px;color:var(--muted)}
+.group-tags {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.group-tags:empty {display:none}
+.group-chip {display:inline-flex;align-items:center;gap:4px;max-width:100%;border:1px solid var(--line);background:var(--hover);border-radius:999px;padding:3px 4px 3px 12px;color:var(--ink);font-size:13px;min-height:30px}
+.group-chip-name {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-chip-remove {display:inline-flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:17px;opacity:0;transition:opacity var(--quick),background var(--quick)}
+.group-chip:hover .group-chip-remove,.group-chip:focus-within .group-chip-remove {opacity:1}
+.group-chip-remove:hover {background:var(--line);color:var(--ink)}
+.group-picker .field-hint {margin:8px 0 0;font-size:12px}
+.group-picker .is-error {color:var(--danger)}
+/* Inline settings variant: selected pills stay above a scrollable checklist. */
+.group-picker-inline {margin:8px 0 0}
+.group-picker-inline .group-search-row {min-height:42px;border-radius:12px;padding:4px 5px 4px 12px}
+.group-picker-inline .group-search-row>.small-btn {border:0;border-radius:999px;background:var(--hover);padding:4px 16px;min-height:32px}
+.group-picker-inline .group-tags {margin:10px 0;gap:6px}
+.group-picker-inline .group-chip {background:var(--primary-soft);color:var(--primary);border:0;padding-left:12px;min-height:30px}
+.group-picker-inline .group-chip-remove {opacity:1;color:var(--primary)}
+.group-picker-inline .group-results {position:static;width:100%;max-height:192px;min-height:76px;scrollbar-gutter:stable;border:0;box-shadow:none;border-radius:12px;background:var(--paper);padding:6px;margin-top:10px}
+.group-picker-inline .group-result {min-height:40px;padding:8px;gap:10px}
+.group-picker-inline .group-result>span:not(.group-result-check) {flex:1}
+.group-picker-inline .group-result-check {display:inline-flex;align-items:center;justify-content:center;flex:0 0 18px;height:18px;border:1px solid var(--control-line);border-radius:5px;color:transparent;font-size:12px;line-height:1}
+.group-picker-inline .group-result[aria-checked=true] .group-result-check {background:var(--primary);border-color:var(--primary);color:var(--surface)}
+.group-picker-inline .group-picker-hint:empty {display:none}
+.group-manual {margin:0 0 18px;font-size:12px;color:var(--muted)}
+.group-manual textarea {margin-top:8px}
+@media(hover:none) {.group-chip-remove {opacity:1}}
+@media(prefers-reduced-motion:reduce) {.group-chip-remove {transition:none}}

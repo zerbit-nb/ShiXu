@@ -1,4 +1,5 @@
 let qqOffset=0, qqLoading=false, qqProcessing=false, bridgeLoading=false, bridgeQueued=false, qqAccountRevision=0;
+let qqGroupsPicker,qqPickerAccount='';
 const qqPageSize=20;
 const qqStatuses=messageStatuses;
 function qqStatusText(config){
@@ -8,7 +9,9 @@ function qqStatusText(config){
 }
 async function loadQQSettings(){
   const revision=qqAccountRevision,config=await api('/api/qq/config');
-  $('#qqEnabled').checked=config.enabled;if(revision===qqAccountRevision)$('#qqAccount').value=config.account_id;$('#qqGroups').value=config.group_ids.join('\n');
+  $('#qqEnabled').checked=config.enabled;if(revision===qqAccountRevision){$('#qqAccount').value=config.account_id;qqPickerAccount=config.account_id;}
+  $('#qqGroups').value=config.group_ids.join('\n');
+  if(qqGroupsPicker&&!$('#qqSettingsDialog').open)qqGroupsPicker.reset(config.group_ids.map(id=>({id,name:'QQ 群 '+id})));
   $('#qqToken').value='';$('#qqToken').type='password';$('#showQQToken').textContent='显示本次输入';
   $('#qqTokenStatus').textContent=config.has_token?'Token 已加密保存，留空保留；保存后自动同步上报。':'登录后自动生成并配置，无需手动复制。';qqStatusText(config);
 }
@@ -46,8 +49,28 @@ async function processQQMessage(event){
   finally{setButtonBusy(button,false);qqProcessing=false;const error=$('#qqInboxError').textContent;await loadQQInbox();if(error)$('#qqInboxError').textContent=error;}
 }
 async function initializeQQ(){
+  qqGroupsPicker=new GroupPicker($('#qqGroupPicker'),{prefix:'qq',limit:100,inline:true,
+    load:async()=>{
+      const account=$('#qqAccount').value.trim();if(!/^[1-9][0-9]{4,19}$/.test(account))throw Error('请先登录 QQ，或填写接收 QQ 号。');
+      return api('/api/qq/groups?account_id='+encodeURIComponent(account));
+    },change:groups=>{
+      $('#qqGroups').value=groups.map(g=>g.id).join('\n');
+      $('#qqGroupCount').textContent='已选 '+groups.length+' / 100';$('#clearQQGroups').disabled=!groups.length;
+    }
+  });
+  $('#clearQQGroups').onclick=()=>{qqGroupsPicker.set([]);qqGroupsPicker.note('');};
+  $('#qqGroups').addEventListener('input',()=>{$('#clearQQGroups').disabled=!$('#qqGroups').value.trim()&&!qqGroupsPicker.value().length;});
+  $('#qqAccount').addEventListener('input',()=>{
+    qqAccountRevision++;qqPickerAccount=$('#qqAccount').value.trim();qqGroupsPicker.reset();
+    qqGroupsPicker.note('账号已更改，请重新读取并选择群聊。');
+  });
   const nav=createConnectionShortcut('qq','QQ');
-  $('#qqSettingsBtn').onclick=()=>$('#qqSettingsDialog').showModal();$('#closeQQSettings').onclick=()=>$('#qqSettingsDialog').close();
+  $('#qqSettingsBtn').onclick=async()=>{
+    try{await loadQQSettings();$('#qqError').textContent='';$('#qqSettingsDialog').showModal();}
+    catch(error){toast('设置读取失败：'+error.message);}
+  };
+  $('#closeQQSettings').onclick=()=>$('#qqSettingsDialog').close();
+  $('#qqSettingsDialog').addEventListener('close',()=>qqGroupsPicker.cancel());
   $('#qqCallback').textContent=location.origin+'/api/qq/events';
   $('#qqForm').onsubmit=async e=>{
     e.preventDefault();const button=$('#saveQQ');if(button.disabled)return;setButtonBusy(button,true,'保存中…');$('#qqError').textContent='';
@@ -71,6 +94,10 @@ async function loadBridgeStatus(options = {}){
     const synced=await loginRequest('sync');
     if(generation!==loginGeneration){bridgeQueued=true;return;}
     if(synced.receiver){
+      if(qqPickerAccount&&qqPickerAccount!==synced.receiver.account_id){
+        qqGroupsPicker?.invalidate();qqGroupsPicker?.note('QQ 账号已变化，请读取并核对接收群聊。');
+      }
+      qqPickerAccount=synced.receiver.account_id;
       qqAccountRevision++;$('#qqAccount').value=synced.receiver.account_id;
       qqStatusText(synced.receiver);
       if(!$('#qqToken').value)$('#qqTokenStatus').textContent='Token 已加密保存，留空保留；保存后自动同步上报。';

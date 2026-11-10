@@ -1,4 +1,10 @@
 /* Shared application surfaces and controls. */
+.history-help{font-size:12px;color:var(--muted);margin-top:6px}
+.history-help summary{cursor:pointer;width:fit-content}
+.history-help p{max-width:56ch;line-height:1.7}
+#historyResults{white-space:pre-line;line-height:1.8}
+#historyResults:empty,#historyError:empty{display:none}
+#historyStatus{font-size:12px;color:var(--muted)}
 .automation-local-row{padding-left:60px}
 .connection-row #automationError{color:var(--danger)}
 #automationStatus,#automationLocalStatus{font-size:12px;color:var(--muted)}

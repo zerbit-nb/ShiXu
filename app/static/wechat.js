@@ -1,6 +1,7 @@
 /* Explicit local capture controls; receiving never invokes a model or creates tasks. */
 let wechatOffset=0,wechatLoading=false,wechatProcessing=false,wechatControlling=false;
 let wechatSnapshot='',wechatStatus=null,wechatCanAnalyze=false;
+let wechatGroupsPicker,wechatSavedAlias='',wechatSettingsRevision=0;
 const wechatPageSize=20;
 const wechatStates={paused:'已暂停',starting:'准备中',listening:'采集中',waiting:'等待微信',stopping:'暂停中',error:'采集异常',unknown:'状态未确认'};
 const wechatMessageStates=messageStatuses;
@@ -8,7 +9,7 @@ function renderWechatStatus(status){
   wechatStatus=status;
   document.dispatchEvent(new CustomEvent('connection-status',{detail:{source:'wechat',status}}));
   $('#wechatState').textContent=wechatStates[status.state]||'状态未确认';$('#wechatState').dataset.state=status.state;
-  $('#wechatGroup').textContent=status.group_name||'尚未设置目标群';
+  $('#wechatGroup').textContent=status.groups?.length?status.groups.map(g=>g.name).join('、'):status.group_name||'尚未设置目标群';
   $('#wechatStatusHint').textContent=status.message||({paused:'已有消息可继续整理 · 重启后需手动开始',starting:'正在检查微信与读取位置…',listening:'已接收 '+status.received_count+' 条文本',waiting:'等待电脑微信恢复',stopping:'正在停止采集…',error:'请检查电脑微信后重试',unknown:'无法读取采集状态，请刷新重试'}[status.state]||'请刷新重试');
   $('#wechatGap').hidden=!status.gap_possible;
   const active=['starting','listening','waiting','stopping'].includes(status.state);
@@ -89,24 +90,48 @@ async function processWechatMessage(event){
   }
 }
 function initializeWechat(){
+  wechatGroupsPicker=new GroupPicker($('#wechatGroupPicker'),{prefix:'wechat',limit:20,inline:true,change:groups=>{
+    $('#wechatGroupCount').textContent='已选 '+groups.length+' / 20';$('#clearWechatGroups').disabled=!groups.length;
+  },load:async()=>{
+    const alias=$('#wechatAccount').value.trim();if(!alias)throw Error('请先填写微信号。');
+    return api('/api/wechat/groups',{method:'POST',body:{account_alias:alias}});
+  }});
+  $('#clearWechatGroups').onclick=()=>{wechatGroupsPicker.set([]);wechatGroupsPicker.note('');};
+  $('#wechatAccount').addEventListener('input',()=>{
+    if($('#wechatAccount').value.trim()===wechatSavedAlias)return;
+    wechatGroupsPicker.reset();wechatGroupsPicker.note('账号已更改，请重新读取并选择群聊。');
+  });
   const nav=createConnectionShortcut('wechat','微信');
   $('#refreshWechat').onclick=()=>loadWechatInbox({button:$('#refreshWechat')});
   $('#wechatStart').onclick=()=>controlWechat('start');$('#wechatStop').onclick=()=>controlWechat('stop');
   $('#wechatPrev').onclick=()=>{if(wechatLoading||wechatProcessing)return;wechatOffset=Math.max(0,wechatOffset-wechatPageSize);loadWechatInbox();};
   $('#wechatNext').onclick=()=>{if(wechatLoading||wechatProcessing)return;wechatOffset+=wechatPageSize;loadWechatInbox();};
   $('#wechatMessages').onclick=processWechatMessage;
-  $('#wechatSettingsBtn').onclick=()=>{
-    $('#wechatGroupInput').value=wechatStatus?.group_name||'';$('#wechatAccount').value='';
-    $('#wechatAccountHint').textContent=wechatStatus?.has_account?'已保存微信号摘要；修改设置时请重新填写微信号。':'仅保存微信号摘要，不保存密码。';
-    $('#wechatSettingsError').textContent='';$('#wechatSettingsDialog').showModal();
+  $('#wechatSettingsBtn').onclick=async()=>{
+    const revision=++wechatSettingsRevision;
+    $('#wechatAccount').value='';$('#wechatAccount').disabled=true;$('#saveWechat').disabled=true;
+    wechatGroupsPicker.reset();wechatGroupsPicker.refresh.disabled=true;
+    $('#wechatSettingsError').textContent='';$('#wechatAccountHint').textContent='正在读取设置…';$('#wechatSettingsDialog').showModal();
+    try{
+      const config=await api('/api/wechat/config');if(revision!==wechatSettingsRevision||!$('#wechatSettingsDialog').open)return;
+      wechatSavedAlias=config.account_alias||'';$('#wechatAccount').value=wechatSavedAlias;
+      wechatGroupsPicker.reset(config.groups?.length?config.groups:config.group_name?[{id:'legacy',name:config.group_name,legacy:true}]:[]);
+      $('#wechatAccountHint').textContent=config.has_account&&!wechatSavedAlias?'旧设置仅保存摘要，请补填一次微信号。':'微信号加密保存在本机，不保存密码。';
+      $('#wechatAccount').disabled=false;$('#saveWechat').disabled=false;
+    }catch(error){if(revision===wechatSettingsRevision)$('#wechatSettingsError').textContent='设置读取失败：'+error.message;}
   };
   $('#closeWechatSettings').onclick=()=>$('#wechatSettingsDialog').close();
-  $('#wechatSettingsDialog').addEventListener('close',()=>$('#wechatAccount').value='');
+  $('#wechatSettingsDialog').addEventListener('close',()=>{wechatSettingsRevision++;$('#wechatAccount').value='';wechatSavedAlias='';wechatGroupsPicker.reset();});
   $('#wechatForm').onsubmit=async event=>{
     event.preventDefault();const button=$('#saveWechat');if(button.disabled)return;
     setButtonBusy(button,true,'保存中…');$('#wechatSettingsError').textContent='';
     try{
-      await api('/api/wechat/config',{method:'PUT',body:{group_name:$('#wechatGroupInput').value.trim(),account_alias:$('#wechatAccount').value.trim()}});
+      const groups=wechatGroupsPicker.value();
+      if(!groups.length)throw Error('请至少选择一个接收群聊。');
+      const legacy=groups.filter(g=>g.legacy);
+      if(legacy.length&&groups.length>1)throw Error('请先读取群聊，重新选择旧配置中的群。');
+      const selection=legacy.length?{group_name:legacy[0].name}:{groups:groups.map(({id,name})=>({id,name}))};
+      await api('/api/wechat/config',{method:'PUT',body:{...selection,account_alias:$('#wechatAccount').value.trim()}});
       $('#wechatAccount').value='';$('#wechatSettingsDialog').close();toast('设置已保存，请手动开始采集。');await loadWechatInbox();
     }catch(error){$('#wechatSettingsError').textContent=error.message;}
     finally{setButtonBusy(button,false);}

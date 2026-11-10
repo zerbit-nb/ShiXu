@@ -12,8 +12,9 @@ function completedSelectionHtml(task){
 function updateCompletedControls(tasks=visibleTasks()){
  if(!$('#completedControls'))return;
  const completed=state.filter==='completed';
- $('.reminder-choice').hidden=completed;$('#completedControls').hidden=!completed;
+ $('.reminder-choice').hidden=completed;$('#manageCompleted').hidden=!completed;
  if(!completed){completedManager.active=false;completedManager.selected.clear();}
+ $('#completedControls').hidden=!completed||!completedManager.active;
  const eligible=tasks.filter(t=>t.status==='completed');
  for(const [id,version] of completedManager.selected){if(!eligible.some(t=>t.id===id&&t.version===version))completedManager.selected.delete(id);}
  $('#manageCompleted').textContent=completedManager.active?'退出管理':'管理';
@@ -61,6 +62,7 @@ function initializeCompletedManagement(){
  const controls=document.createElement('div');controls.id='completedControls';controls.className='completed-controls';controls.hidden=true;
  controls.innerHTML='<button id="manageCompleted" class="small-btn" type="button" aria-controls="completedActions" aria-expanded="false">管理</button><div id="completedActions" class="completed-actions" hidden><label class="select-all"><input id="selectAllCompleted" type="checkbox">全选当前列表</label><span id="selectedCompletedCount" role="status">已选 0 条</span><button id="restoreCompleted" class="small-btn" type="button">恢复所选</button><button id="deleteCompleted" class="small-btn danger-button" type="button">删除所选</button><button id="clearCompleted" class="small-btn danger-button" type="button">清空已完成</button></div><p id="completedError" class="form-error" role="alert"></p>';
  $('.task-toolbar').after(controls);
+ $('#refreshBtn').before($('#manageCompleted'));
  const dialog=document.createElement('dialog');dialog.id='completedDeleteDialog';dialog.setAttribute('aria-labelledby','completedDeleteTitle');dialog.setAttribute('aria-describedby','completedDeleteDescription completedDeleteWarning');
  dialog.innerHTML='<div class="settings-form"><h2 id="completedDeleteTitle">删除所选任务？</h2><p id="completedDeleteDescription" class="dialog-copy"></p><p id="completedDeleteWarning" class="delete-warning">不可恢复。将删除任务、关联与变更历史，保留原始通知。</p><p id="completedDeleteError" class="form-error" role="alert"></p><div class="settings-actions"><button id="cancelCompletedDelete" class="button secondary" type="button">取消</button><button id="confirmCompletedDelete" class="button danger-button" type="button">确认删除</button></div></div>';document.body.append(dialog);
  $('#manageCompleted').onclick=()=>{completedManager.active=!completedManager.active;completedManager.selected.clear();renderTaskList();};

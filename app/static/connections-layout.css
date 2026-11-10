@@ -1,0 +1,214 @@
+/* Settings overview only. Existing controllers, state and detail forms are retained. */
+#connectionsView {
+  --settings-inset:var(--paper);
+  --settings-motion:250ms;
+  max-width:840px;
+  padding-top:12px;
+}
+#connectionsView .page-heading {margin-bottom:24px}
+#connectionsView .page-heading h1 {font-size:30px;font-weight:650;letter-spacing:-.8px}
+#connectionsView .connection-list {
+  display:block;
+  padding:14px 24px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--surface);
+  box-shadow:0 4px 20px #202b4104;
+}
+#connectionsView .connection-row {
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) auto;
+  align-items:start;
+  gap:0 16px;
+  padding:16px 0;
+  min-width:0;
+  border:0;
+}
+#connectionsView .connection-row>div {min-width:0;align-self:center}
+#connectionsView .connection-row h2 {
+  margin:0 0 3px;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.6;
+}
+#connectionsView .connection-row p {
+  max-width:58ch;
+  font-size:12px;
+  line-height:1.65;
+  text-wrap:pretty;
+}
+#connectionsView .connection-row .field-hint {margin-top:5px}
+#connectionsView .connection-row .form-error:not(:empty) {margin-top:6px;color:var(--danger)}
+#connectionsView .connection-monogram {
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  background:var(--primary-soft);
+  color:var(--primary);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 12%,transparent);
+}
+#connectionsView .connection-monogram .ui-icon {width:19px;height:19px;stroke-width:1.7}
+#connectionsView .connection-monogram.wechat {background:var(--success-soft);color:var(--success)}
+#connectionsView .connection-monogram.ai {background:var(--nav);color:var(--muted)}
+#connectionsView .connection-row:has(#receptionFilterTitle) .connection-monogram {background:var(--warning-soft);color:var(--warning)}
+#connectionsView .connection-row:has(#automationTitle),
+#connectionsView .connection-row:has(#historyTitle) {
+  margin-top:8px;
+  padding-top:22px;
+  border-top:1px solid var(--line);
+}
+#connectionsView .connection-row:has(#receptionFilterTitle) {
+  margin-top:8px;
+  padding-top:22px;
+  border-top:1px solid var(--line);
+}
+#connectionsView .connection-row>.button {
+  align-self:center;
+  min-height:32px;
+  padding:5px 13px;
+  margin:0;
+  font-size:12px;
+  font-weight:500;
+  border:0;
+  border-radius:20px;
+  color:var(--ink);
+  background:var(--nav);
+  box-shadow:none;
+  transition:background 150ms var(--ease),transform 150ms var(--ease);
+}
+#connectionsView .connection-row>.button:hover {background:var(--line)}
+#connectionsView .connection-row>.button:active {transform:scale(.97)}
+#connectionsView .reception-filter-control {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:9px;
+  max-width:160px;
+  flex-wrap:wrap;
+  align-self:start;
+  min-height:40px;
+  padding:0;
+  margin:0;
+}
+#connectionsView .reception-filter-control>span {
+  min-width:36px;
+  max-width:96px;
+  font-size:12px;
+  line-height:1.5;
+  text-align:right;
+  color:var(--muted);
+  white-space:normal;
+}
+#connectionsView .reception-filter-switch {
+  width:40px;
+  height:24px;
+  padding:3px;
+  border:0;
+  background:var(--line);
+  transition:transform 150ms var(--ease);
+}
+#connectionsView .reception-filter-switch:active:not(:disabled) {transform:scale(.95)}
+#connectionsView .reception-filter-switch:disabled {cursor:not-allowed;opacity:.6}
+#connectionsView .reception-filter-switch>span {
+  width:18px;
+  height:18px;
+  box-shadow:0 1px 2px #202b4133;
+  transition:none;
+}
+#connectionsView .reception-filter-switch[aria-checked=true] {background:var(--primary)}
+#connectionsView .reception-filter-switch[aria-checked=true]>span {transform:translateX(16px)}
+#connectionsView .automation-local-row {
+  grid-template-columns:minmax(0,1fr) auto;
+  margin-left:56px;
+  padding:4px 0 12px;
+}
+#connectionsView .automation-local-row h2 {font-size:14px;font-weight:600}
+#connectionsView .settings-status {display:inline-grid;position:relative;vertical-align:middle}
+#connectionsView .settings-status-label {grid-area:1 / 1}
+#connectionsView .settings-status.is-changing::before {
+  content:attr(data-previous);
+  position:absolute;
+  inset:0;
+  animation:settings-status-out 200ms ease-in-out both;
+}
+#connectionsView .settings-status.is-changing .settings-status-label {animation:settings-status-in 200ms ease-in-out both}
+@keyframes settings-status-out {from{opacity:1;filter:blur(0)}to{opacity:0;filter:blur(2px)}}
+@keyframes settings-status-in {from{opacity:0;filter:blur(2px)}to{opacity:1;filter:blur(0)}}
+#connectionsView :is(.history-help,.settings-help) {max-width:none;margin:8px 0 0;font-size:12px}
+#connectionsView :is(.history-help,.settings-help)>summary {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:28px;
+  padding:0 2px;
+  list-style:none;
+  color:var(--muted);
+  border-radius:4px;
+}
+#connectionsView :is(.history-help,.settings-help)>summary::-webkit-details-marker {display:none}
+#connectionsView :is(.history-help,.settings-help)>summary::before {display:none}
+#connectionsView :is(.history-help,.settings-help)>summary::after {
+  content:"";
+  width:6px;
+  height:6px;
+  margin-top:-3px;
+  border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;
+  transform:rotate(45deg);
+  transition:transform var(--settings-motion) var(--ease);
+}
+#connectionsView :is(.history-help,.settings-help)[open]>summary::after {transform:translateY(3px) rotate(225deg)}
+#connectionsView :is(.history-help,.settings-help)>summary:hover {color:var(--ink)}
+#connectionsView :is(.history-help,.settings-help)[open] {
+  padding:10px 12px 12px;
+  background:var(--settings-inset);
+  border-radius:9px;
+}
+#connectionsView :is(.history-help,.settings-help)[open]>:not(summary) {animation:settings-disclose var(--settings-motion) var(--ease)}
+#connectionsView :is(.history-help,.settings-help) p {margin-top:8px;line-height:1.75}
+#connectionsView .reminder-preference-grid {
+  grid-template-columns:minmax(72px,auto) minmax(0,1fr);
+  gap:12px;
+  margin:12px 0;
+}
+#connectionsView .reminder-preference-grid label {font-size:12px;margin:0;color:var(--ink)}
+#connectionsView .reminder-preference-grid input,
+#connectionsView .reminder-preference-grid select {width:100%;font-size:12px;min-height:34px;background:var(--surface)}
+#connectionsView .reminder-preference-grid input[type=checkbox] {width:14px;min-height:0}
+#connectionsView .reminder-quiet-time {gap:6px}
+#connectionsView .reminder-settings-actions {margin-top:12px}
+#connectionsView .reminder-settings-actions .small-btn {font-size:12px;min-height:32px}
+#connectionsView #historyResults:empty,
+#connectionsView #historyError:empty,
+#connectionsView #taskReminderError:empty {display:none}
+@keyframes settings-disclose {from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px) {
+  #connectionsView {padding-top:0}
+  #connectionsView .page-heading h1 {font-size:26px}
+  #connectionsView .connection-list {padding:8px 16px;border-radius:14px}
+  #connectionsView .connection-row {grid-template-columns:36px minmax(0,1fr) auto;gap:0 12px;padding:14px 0}
+  #connectionsView .connection-monogram {width:36px;height:36px;border-radius:10px}
+  #connectionsView .reception-filter-control {min-height:36px;max-width:126px}
+  #connectionsView .reception-filter-control>span {max-width:68px}
+  #connectionsView .automation-local-row {grid-template-columns:minmax(0,1fr) auto;margin-left:48px;padding-top:2px}
+}
+@media(max-width:560px) {
+  #connectionsView .connection-row {grid-template-columns:36px minmax(0,1fr);row-gap:8px}
+  #connectionsView .connection-row>.button,
+  #connectionsView .reception-filter-control {grid-column:2;justify-self:end;min-height:36px;max-width:none}
+  #connectionsView .connection-row:has(>.button) {grid-template-columns:36px minmax(0,1fr) auto}
+  #connectionsView .connection-row>.button {grid-column:3;grid-row:1}
+  #connectionsView .reception-filter-control>span {max-width:none}
+  #connectionsView .automation-local-row {grid-template-columns:minmax(0,1fr)}
+  #connectionsView .automation-local-row .reception-filter-control {grid-column:1}
+  #connectionsView .reminder-preference-grid {grid-template-columns:minmax(0,1fr);gap:8px}
+  #connectionsView :is(.history-help,.settings-help)[open] {padding:8px}
+}
+@media(prefers-reduced-motion:reduce) {
+  #connectionsView *,#connectionsView *::after {animation:none!important;transition:none!important}
+}
+@media(forced-colors:active) {
+  #connectionsView .connection-list,#connectionsView .connection-monogram {border:1px solid CanvasText}
+  #connectionsView .reception-filter-switch {border:1px solid ButtonText}
+  #connectionsView .reception-filter-switch[aria-checked=true] {background:Highlight}
+}

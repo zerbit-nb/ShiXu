@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 import re
 from uuid import uuid4
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Query
+from app.services.qq_verification import LoginError
 from pydantic import BaseModel, Field, ValidationError
 from app.database import utc_now
 from app.schemas import MessageInput, TaskFields
@@ -71,7 +72,7 @@ def init_storage(db):
     db.conn.commit()
 
 
-def receive(db, event):
+def receive(db, event, *, history_run=None):
     key = (str(event.self_id), str(event.group_id), str(event.message_id))
     if db.conn.execute('SELECT 1 FROM qq_receipts WHERE account_id=? AND group_id=? AND event_id=?', key).fetchone():
         return
@@ -102,10 +103,23 @@ def receive(db, event):
         db.conn.execute('INSERT INTO messages (id,source,source_group,sender,sent_at,raw_text,extraction_status,created_at) VALUES (:id,:source,:source_group,:sender,:sent_at,:raw_text,:extraction_status,:created_at)', data)
         db.conn.execute('INSERT INTO qq_receipts VALUES (?,?,?,?)', (*key, data['id']))
         apply_filter(db, data['id'], text)
+        if history_run:
+            from app.services.history import record_message
+            record_message(db, data['id'], text, history_run)
+    return data['id']
 
 
 def create_router(extract_one, model_factory):
     router = APIRouter()
+
+    @router.get('/api/qq/groups')
+    async def groups(request:Request,response:Response,account_id:str=Query(pattern=r'^[1-9][0-9]{4,19}$')):
+        if not request.client or request.client.host not in {'127.0.0.1','::1','testclient'}:
+            raise HTTPException(403,'群列表仅允许本机读取。')
+        response.headers['Cache-Control']='no-store'
+        try:return await request.app.state.qq_login.groups(account_id)
+        except LoginError as exc:
+            raise HTTPException(409 if exc.state in {'qq_offline','account_mismatch'} else 503,exc.message) from None
 
     @router.get('/api/qq/config')
     async def config(request: Request):

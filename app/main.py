@@ -37,6 +37,10 @@ from app.services.wechat_monitor import WeChatMonitor
 from app.services.wechat_store import init_storage as init_wechat_storage
 from app.services.auto_organize import AutoOrganizer
 from app.routers.automation import router as automation_router
+from app.routers.history import router as history_router
+from app.services.history import HistoryCatchup
+from app.services.task_reminders import TaskReminders
+from app.routers.reminders import router as reminder_router
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'app' / 'static'
@@ -67,10 +71,20 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
         app.state.bridge = BridgeMonitor(config_path.parent)
         app.state.qq_login = QQLogin(app.state.bridge)
         app.state.automation = AutoOrganizer(app.state.db, settings, lambda: llm or LLMService(deepcopy(settings)), app.state.model_lock)
+        app.state.history = HistoryCatchup(app.state.db, app.state.qq, app.state.qq_login, app.state.wechat, app.state.automation)
+        app.state.reminders = TaskReminders(app.state.db)
+        reminder_task = asyncio.create_task(app.state.reminders.run())
+        history_task = asyncio.create_task(app.state.history.run())
         automation_task = asyncio.create_task(app.state.automation.run())
         try:
             yield
         finally:
+            reminder_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await reminder_task
+            history_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await history_task
             automation_task.cancel()
             try:
                 with suppress(asyncio.CancelledError):
@@ -84,11 +98,13 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
                     app.state.qq_login.device.clear()
                     app.state.db.close()
 
-    api = FastAPI(title='CampusFlow', version='1.1.0', lifespan=lifespan)
+    api = FastAPI(title='CampusFlow', version='1.2.0', lifespan=lifespan)
     api.include_router(association_router)
     api.include_router(completed_router)
     api.include_router(inbox_router)
     api.include_router(automation_router)
+    api.include_router(history_router)
+    api.include_router(reminder_router)
     api.include_router(qq_login_router)
     api.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
     model = llm or LLMService(settings)
@@ -108,7 +124,7 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
                 if (supplied.scheme, supplied.netloc) != (expected.scheme, expected.netloc):
                     return JSONResponse({'detail': '禁止来自其他网站的写入请求'}, status_code=403)
         response = await call_next(request)
-        if request.url.path.startswith(('/api/qq/login/','/api/wechat/','/api/automation')):
+        if request.url.path.startswith(('/api/qq/login/','/api/wechat/','/api/automation','/api/history','/api/reminders')):
             response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'"
@@ -165,7 +181,7 @@ def create_app(settings=None, db_path=None, llm=None, config_path=None):
 
     @api.get('/api/health')
     async def health():
-        return {'status': 'ok', 'version': '1.1.0', 'timezone': 'Asia/Shanghai', 'model_configured': bool(settings.llm_model), 'application': 'CampusFlow', 'instance': hashlib.sha256(str(config_path.resolve()).encode()).hexdigest(), 'desktop_control': getattr(api.state, 'desktop_control', None)}
+        return {'status': 'ok', 'version': '1.2.0', 'timezone': 'Asia/Shanghai', 'model_configured': bool(settings.llm_model), 'application': 'CampusFlow', 'instance': hashlib.sha256(str(config_path.resolve()).encode()).hexdigest(), 'desktop_control': getattr(api.state, 'desktop_control', None)}
 
     @api.get('/api/config')
     async def config():

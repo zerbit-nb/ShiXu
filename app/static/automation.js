@@ -7,18 +7,22 @@ let automationNativeVisible=!automationDesktop;
 function automationForeground(){return !document.hidden&&document.hasFocus()&&automationNativeVisible;}
 function renderAutomation(data){
   automationConfig=data;
-  $('#automationToggle').setAttribute('aria-checked',String(data.enabled));
-  $('#automationLocalToggle').setAttribute('aria-checked',String(data.allow_local));
+  setSettingsSwitch($('#automationToggle'),data.enabled);
+  setSettingsSwitch($('#automationLocalToggle'),data.enabled&&data.allow_local);
   const labels={disabled:'已关闭',local_disabled:'等待本地模型许可',unconfigured:'待配置模型',ready:'已开启'};
-  $('#automationStatus').textContent=data.error?'需要检查':labels[data.state]||'状态未知';
-  $('#automationLocalStatus').textContent=data.allow_local?'允许':'不允许';
+  setSettingsStatus($('#automationStatus'),data.error?'需要检查':labels[data.state]||'状态未知');
+  setSettingsStatus($('#automationLocalStatus'),!data.enabled?'不允许':data.allow_local?'已开启':'已关闭');
   $('#automationError').textContent=data.error||'';
+  syncAutomationControls();
   syncAutomationPrivacy();
+}
+function syncAutomationControls(){
+  $('#automationToggle').disabled=automationSaving||!automationConfig;
+  $('#automationLocalToggle').disabled=automationSaving||!automationConfig?.enabled;
 }
 function syncAutomationPrivacy(){
   const automatic=automationConfig?.enabled;
-  $('.sidebar-note p').textContent=automatic?'原文与待办保存在本机；自动整理使用所选模型。':'原文与待办保存在本机；云端仅发送主动分析的消息。';
-  if(modelConfig)$('#destinationNotice').textContent=modelConfig.provider==='local'?'本地模型 · 通知在本机处理':providerLabels[modelConfig.provider]+(automatic?' · 自动整理已开启，新消息文本将发送至该服务':' · 分析时发送所选原文与发送时间');
+  if(modelConfig)$('#destinationNotice').textContent=modelConfig.provider==='local'?'本地模型 · 通知在本机处理':providerLabels[modelConfig.provider]+(automatic?' · 自动整理已开启，接收及补收的消息文本将发送至该服务':' · 分析时发送所选原文与发送时间');
 }
 async function loadAutomation(){
   if(!$('#automationToggle'))return;
@@ -27,20 +31,21 @@ async function loadAutomation(){
   ++automationSettingsRevision;
   const controls=[$('#automationToggle'),$('#automationLocalToggle')];controls.forEach(b=>b.disabled=true);
   $('#automationRetry').hidden=true;
-  try{renderAutomation(await api('/api/automation'));controls.forEach(b=>b.disabled=false);}
-  catch(error){$('#automationStatus').textContent='读取失败';$('#automationError').textContent=error.message;$('#automationRetry').hidden=false;}
-  finally{automationSaving=false;}
+  try{renderAutomation(await api('/api/automation'));}
+  catch(error){setSettingsStatus($('#automationStatus'),'读取失败');$('#automationError').textContent=error.message;$('#automationRetry').hidden=false;}
+  finally{automationSaving=false;syncAutomationControls();}
 }
 async function saveAutomation(field){
-  if(automationSaving||!automationConfig)return;
+  if(automationSaving||!automationConfig||field==='allow_local'&&!automationConfig.enabled)return;
   automationSaving=true;
   ++automationSettingsRevision;
   const controls=[$('#automationToggle'),$('#automationLocalToggle')];controls.forEach(b=>{b.disabled=true;b.setAttribute('aria-busy','true');});
-  $('#automationStatus').textContent='保存中…';$('#automationError').textContent='';
+  setSettingsStatus($('#automationStatus'),'保存中…');$('#automationError').textContent='';
   const body={enabled:automationConfig.enabled,allow_local:automationConfig.allow_local};body[field]=!body[field];
+  if(!body.enabled)body.allow_local=false;
   try{renderAutomation(await api('/api/automation',{method:'PUT',body}));toast('自动整理设置已保存。');}
   catch(error){renderAutomation(automationConfig);$('#automationError').textContent=error.message;}
-  finally{automationSaving=false;controls.forEach(b=>{b.disabled=false;b.removeAttribute('aria-busy');});}
+  finally{automationSaving=false;controls.forEach(b=>b.removeAttribute('aria-busy'));syncAutomationControls();}
 }
 function hideAutomationNotice(){
   const card=$('#automationCard');
@@ -109,9 +114,9 @@ async function acknowledgeAutomation(open){
 }
 document.addEventListener('DOMContentLoaded',()=>{
   const row=document.createElement('section');row.className='connection-row reception-filter-row';
-  row.innerHTML='<span class="connection-monogram">'+uiIcon('settings')+'</span><div><h2 id="automationTitle">自动整理待办</h2><p id="automationHint">明确通知自动创建；不确定、疑似重复或变更留在收件箱。仅处理开启后的 QQ、微信新消息。</p><p class="field-hint">收起到托盘时继续处理，打开界面后显示提醒。使用云端模型会自动发送新消息文本，可能产生费用；AI 结果仍需留意核对。</p><p id="automationError" class="form-error" role="alert"></p></div><span class="reception-filter-control"><span id="automationStatus" role="status">读取中…</span><button id="automationToggle" type="button" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="automationTitle" aria-describedby="automationHint" disabled><span aria-hidden="true"></span></button><button id="automationRetry" type="button" class="small-btn" hidden>重试</button></span>';
+  row.innerHTML='<span class="connection-monogram">'+uiIcon('bolt')+'</span><div><h2 id="automationTitle">自动整理</h2><p id="automationHint">QQ、微信新通知转待办，存疑留收件箱</p><details class="settings-help"><summary>运行说明</summary><p class="field-hint">托盘继续处理，前台提醒。云端会发送新消息文本，可能收费。自动整理结果请核对；主开关关闭后，本地自动整理也会关闭。</p></details><p id="automationError" class="form-error" role="alert"></p></div><span class="reception-filter-control"><span id="automationStatus" role="status">读取中…</span><button id="automationToggle" type="button" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="automationTitle" aria-describedby="automationHint" disabled><span aria-hidden="true"></span></button><button id="automationRetry" type="button" class="small-btn" hidden>重试</button></span>';
   const local=document.createElement('section');local.className='connection-row reception-filter-row automation-local-row';
-  local.innerHTML='<div><h2 id="automationLocalTitle">允许本地模型自动整理</h2><p id="automationLocalHint">使用 LM Studio 时单独许可。需保持本地模型服务运行，会占用计算资源。</p></div><span class="reception-filter-control"><span id="automationLocalStatus" role="status">读取中…</span><button id="automationLocalToggle" type="button" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="automationLocalTitle" aria-describedby="automationLocalHint" disabled><span aria-hidden="true"></span></button></span>';
+  local.innerHTML='<div><h2 id="automationLocalTitle">本地自动整理</h2><p id="automationLocalHint">需运行 LM Studio，占用本机资源</p></div><span class="reception-filter-control"><span id="automationLocalStatus" role="status">读取中…</span><button id="automationLocalToggle" type="button" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="automationLocalTitle" aria-describedby="automationLocalHint" disabled><span aria-hidden="true"></span></button></span>';
   $('#connectionsView .connection-list').append(row,local);
   $('#automationToggle').onclick=()=>saveAutomation('enabled');$('#automationLocalToggle').onclick=()=>saveAutomation('allow_local');$('#automationRetry').onclick=loadAutomation;
   $('#automationCardDismiss').onclick=()=>acknowledgeAutomation(false);$('#automationCardOpen').onclick=()=>acknowledgeAutomation(true);

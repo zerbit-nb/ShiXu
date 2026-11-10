@@ -1,6 +1,7 @@
 """Local WeChat capture controls and explicit message-to-draft processing."""
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from app.services.wechat_groups import WeChatGroup, MAX_GROUPS
 from typing import Literal
 from app.schemas import TaskFields
 from app.services.wechat_monitor import MonitorError, MESSAGES
@@ -13,7 +14,22 @@ def local_only(request:Request):
 
 class ConfigInput(BaseModel):
     model_config=ConfigDict(extra='forbid')
-    group_name:str=Field(min_length=1,max_length=200)
+    group_name:str=Field(default='',max_length=200)
+    account_alias:str=Field(min_length=1,max_length=100)
+    groups:list[WeChatGroup]|None=Field(default=None,max_length=MAX_GROUPS)
+
+    @model_validator(mode='after')
+    def selection(self):
+        if not self.account_alias.strip():raise ValueError('请填写微信号')
+        if self.groups is not None:
+            if not self.groups or len({g.id for g in self.groups})!=len(self.groups):
+                raise ValueError('请选择不同的接收群聊')
+            if self.group_name:raise ValueError('请使用群选择或旧版群名其中一种配置')
+        elif not self.group_name.strip():raise ValueError('请选择接收群聊')
+        return self
+
+class GroupSearchInput(BaseModel):
+    model_config=ConfigDict(extra='forbid')
     account_alias:str=Field(min_length=1,max_length=100)
 
 class ProcessInput(BaseModel):
@@ -25,7 +41,9 @@ def create_router(extract_one,model_factory):
     router=APIRouter(prefix="/api/wechat",dependencies=[Depends(local_only)])
 
     @router.get('/config')
-    async def config(request:Request):return request.app.state.wechat.public_config()
+    async def config(request:Request,response:Response):
+        response.headers['Cache-Control']='no-store'
+        return request.app.state.wechat.edit_config()
 
     @router.get('/status')
     async def status(request:Request):return request.app.state.wechat.status()
@@ -39,7 +57,13 @@ def create_router(extract_one,model_factory):
 
     @router.put('/config')
     async def configure(body:ConfigInput,request:Request):
-        return await control(request.app.state.wechat.configure(body.group_name,body.account_alias))
+        return await control(request.app.state.wechat.configure(body.group_name,body.account_alias,
+                             [g.model_dump() for g in body.groups] if body.groups is not None else None))
+
+    @router.post('/groups')
+    async def groups(body:GroupSearchInput,request:Request,response:Response):
+        response.headers['Cache-Control']='no-store'
+        return await control(request.app.state.wechat.discover(body.account_alias))
 
     @router.post('/start')
     async def start(request:Request):return await control(request.app.state.wechat.start())

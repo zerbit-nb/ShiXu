@@ -34,6 +34,8 @@ def digest(value):
 
 
 def profile_key(profile):
+    if profile.get('group_id'):
+        return digest([profile['alias_hash'], 'group_id', profile['group_id']])
     return digest([profile['alias_hash'], profile['group_name']])
 
 
@@ -72,6 +74,12 @@ def bind(db, profile, identity):
     if existing and existing[0] != scope:
         raise ValueError('identity_changed')
     with db.conn:
+        # Migrate only the same verified account/name and exact group identity.
+        # Receipts and per-shard cursors keep their original scope and values.
+        if profile.get('group_id'):
+            legacy_key=digest([profile['alias_hash'],profile['group_name']])
+            db.conn.execute('UPDATE wechat_streams SET profile=? WHERE scope=? AND profile=?',
+                            (key,scope,legacy_key))
         db.conn.execute('INSERT OR IGNORE INTO wechat_streams(scope,profile,account_hash,group_hash) VALUES (?,?,?,?)',
                         (scope, key, identity['account'], identity['group']))
     # A renamed profile cannot silently acquire an existing scope's checkpoint.
@@ -105,6 +113,49 @@ def baseline(db, scope, value):
         db.conn.execute('UPDATE wechat_streams SET initialized=1 WHERE scope=?', (scope,))
 
 
+def _insert_events(db, scope, profile, events, *, replay=False, history_run=None):
+    for event in events:
+        if history_run and event.kind == 'text':
+            from app.services.matching import change_notice
+            if change_notice(event.content):
+                db.conn.execute('UPDATE history_runs SET has_changes=1 WHERE id=?', (history_run,))
+        key = (scope, event.shard, event.local_id)
+        hashed = digest(event.model_dump())
+        receipt = db.conn.execute('SELECT payload_hash FROM wechat_receipts WHERE scope=? AND shard=? AND local_id=?', key).fetchone()
+        if receipt:
+            if receipt[0] != hashed:
+                raise ValueError('source_identity_reused')
+            continue
+        if replay:
+            raise ValueError('incomplete_replay')
+        message_id, now = None, utc_now()
+        if event.kind == 'text':
+            message_id = uuid4().hex
+            db.conn.execute('INSERT INTO messages (id,source,source_group,sender,sent_at,raw_text,extraction_status,created_at) VALUES (?,?,?,?,?,?,?,?)',
+                (message_id, 'wechat', profile['group_name'], event.sender, event.sent_at, event.content, 'received', now))
+            apply_filter(db, message_id, event.content)
+            if history_run:
+                from app.services.history import record_message
+                record_message(db, message_id, event.content, history_run)
+        db.conn.execute('INSERT INTO wechat_receipts VALUES (?,?,?,?,?,?)', (*key, hashed, message_id, now))
+
+
+def commit_history(db, scope, profile, rows, run_id):
+    """Source identities are shared; live checkpoints are never moved by history."""
+    if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_BATCH:
+        raise ValueError('invalid_batch_size')
+    events = [Event.model_validate(row) for row in rows]
+    bound = db.conn.execute('SELECT profile FROM wechat_streams WHERE scope=?', (scope,)).fetchone()
+    if not bound or bound[0] != profile_key(profile):
+        raise ValueError('profile_changed')
+    if any(e.kind == 'text' and (not e.content.strip() or not e.sent_at) for e in events):
+        raise ValueError('history_time_required')
+    if any(e.kind == 'unsupported' and (e.content or e.sender or e.sent_at) for e in events):
+        raise ValueError('nontext_payload_not_allowed')
+    with db.conn:
+        _insert_events(db, scope, profile, events, history_run=run_id)
+
+
 def commit_batch(db, scope, profile, before, rows, after):
     before, after = marks(before), marks(after)
     if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_BATCH:
@@ -128,24 +179,6 @@ def commit_batch(db, scope, profile, before, rows, after):
         current = checkpoint(db, scope)
         if current not in (before, after):
             raise ValueError('stale_checkpoint')
-        replay = current == after
-        for event in events:
-            key = (scope, event.shard, event.local_id)
-            hashed = digest(event.model_dump())
-            receipt = db.conn.execute('SELECT payload_hash FROM wechat_receipts WHERE scope=? AND shard=? AND local_id=?', key).fetchone()
-            if receipt:
-                if receipt[0] != hashed:
-                    raise ValueError('source_identity_reused')
-                continue
-            if replay:
-                raise ValueError('incomplete_replay')
-            message_id = None
-            now = utc_now()
-            if event.kind == 'text':
-                message_id = uuid4().hex
-                db.conn.execute('INSERT INTO messages (id,source,source_group,sender,sent_at,raw_text,extraction_status,created_at) VALUES (?,?,?,?,?,?,?,?)',
-                    (message_id, 'wechat', profile['group_name'], event.sender, event.sent_at, event.content, 'received', now))
-                apply_filter(db, message_id, event.content)
-            db.conn.execute('INSERT INTO wechat_receipts VALUES (?,?,?,?,?,?)', (*key, hashed, message_id, now))
+        _insert_events(db, scope, profile, events, replay=current == after)
         _write_marks(db, scope, after)
     return after

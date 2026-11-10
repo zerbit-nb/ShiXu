@@ -2,22 +2,22 @@
 let receptionFilterBusy=false,receptionFilterEnabled=false;
 function renderReceptionFilter(enabled){
   receptionFilterEnabled=enabled;
-  $('#receptionFilterToggle').setAttribute('aria-checked',String(enabled));
-  $('#receptionFilterStatus').textContent=enabled?'已开启':'已关闭';
+  setSettingsSwitch($('#receptionFilterToggle'),enabled);
+  setSettingsStatus($('#receptionFilterStatus'),enabled?'已开启':'已关闭');
 }
 async function loadReceptionFilter(){
   if(receptionFilterBusy)return;
   receptionFilterBusy=true;const toggle=$('#receptionFilterToggle');toggle.disabled=true;
   $('#receptionFilterRetry').hidden=true;$('#receptionFilterError').textContent='';
-  $('#receptionFilterStatus').textContent='读取中…';
+  setSettingsStatus($('#receptionFilterStatus'),'读取中…');
   try{const data=await api('/api/inbox/filter');renderReceptionFilter(data.enabled);toggle.disabled=false;}
-  catch(error){$('#receptionFilterStatus').textContent='读取失败';$('#receptionFilterError').textContent=error.message;$('#receptionFilterRetry').hidden=false;}
+  catch(error){setSettingsStatus($('#receptionFilterStatus'),'读取失败');$('#receptionFilterError').textContent=error.message;$('#receptionFilterRetry').hidden=false;}
   finally{receptionFilterBusy=false;}
 }
 async function saveReceptionFilter(){
   if(receptionFilterBusy)return;
   receptionFilterBusy=true;const toggle=$('#receptionFilterToggle');toggle.disabled=true;toggle.setAttribute('aria-busy','true');
-  $('#receptionFilterError').textContent='';$('#receptionFilterStatus').textContent='保存中…';
+  $('#receptionFilterError').textContent='';setSettingsStatus($('#receptionFilterStatus'),'保存中…');
   try{const data=await api('/api/inbox/filter',{method:'PUT',body:{enabled:!receptionFilterEnabled}});renderReceptionFilter(data.enabled);toast(data.enabled?'接收过滤已开启。':'接收过滤已关闭。');}
   catch(error){renderReceptionFilter(receptionFilterEnabled);$('#receptionFilterError').textContent=error.message;}
   finally{receptionFilterBusy=false;toggle.disabled=false;toggle.removeAttribute('aria-busy');}

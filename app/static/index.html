@@ -11,7 +11,11 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/qq-login.css">
   <link rel="stylesheet" href="/static/wechat.css">
+  <link rel="stylesheet" href="/static/group-picker.css">
   <link rel="stylesheet" href="/static/automation.css">
+  <link rel="stylesheet" href="/static/reminders.css">
+  <link rel="stylesheet" href="/static/task-workspace.css">
+  <link rel="stylesheet" href="/static/connections-layout.css">
 
 </head>
 <body>
@@ -21,7 +25,7 @@
       <div class="breadcrumb">工作台 <span>/</span> <strong id="viewLabel">待办中心</strong></div>
       <div class="topbar-status"><span class="status-dot" id="modelDot"></span><span id="modelStatus">检查模型连接…</span></div>
       <button class="button primary quick-add" id="quickAdd" popovertarget="quickAddMenu" aria-label="新建或导入">＋ 新建</button><div id="quickAddMenu" class="action-menu" popover><button id="quickNewTask" type="button">新建待办</button><button id="quickImport" type="button">导入消息</button></div>
-      <button class="icon-button" id="settingsBtn" type="button" aria-label="打开设置" title="模型设置"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><rect x="8" y="4" width="4" height="6" rx="1"/><rect x="14" y="14" width="4" height="6" rx="1"/></svg><span>模型设置</span></button>
+      <button class="icon-button" id="settingsBtn" type="button" aria-label="打开设置" title="模型设置"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><rect x="8" y="4" width="4" height="6" rx="1"/><rect x="14" y="14" width="4" height="6" rx="1"/></svg><span>模型</span></button>
     </header>
     <div class="workspace">
       <nav class="sidebar" aria-label="主导航">
@@ -33,7 +37,7 @@
           <button class="nav-item" data-view="completed"><span data-icon="done"></span>已完成</button>
         </div>
         <div class="nav-secondary"><button class="nav-item" data-view="inbox"><span data-icon="plus"></span>导入通知 <b id="navDraftCount" hidden></b></button></div>
-        <div class="sidebar-footer"><button class="nav-item" data-view="connections"><span data-icon="settings"></span>设置与连接</button><section class="connection-overview" aria-label="消息连接状态"><div class="connection-heading"><span>消息连接</span><button id="refreshConnections" type="button" class="small-btn connection-refresh" aria-label="刷新 QQ 和微信状态"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg><span>刷新</span></button></div><div id="connectionShortcuts" class="connection-shortcuts" aria-label="连接快捷入口"></div></section><div class="sidebar-note"><p>原文与待办保存在本机。</p></div></div>
+        <div class="sidebar-footer"><button class="nav-item" data-view="connections"><span data-icon="settings"></span>设置与连接</button><section class="connection-overview" aria-label="消息连接状态"><div class="connection-heading"><span>消息连接</span><button id="refreshConnections" type="button" class="small-btn connection-refresh" aria-label="刷新 QQ 和微信状态"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg><span>刷新</span></button></div><div id="connectionShortcuts" class="connection-shortcuts" aria-label="连接快捷入口"></div></section></div>
       </nav>
       <main class="main" id="mainContent" tabindex="-1">
         <section class="view" id="inboxView" hidden>
@@ -53,10 +57,10 @@
           <div id="unifiedMessages" class="message-list" aria-live="polite"></div><div class="qq-pagination"><button class="small-btn" id="inboxPrev">上一页</button><span id="inboxPage"></span><button class="small-btn" id="inboxNext">下一页</button></div>
         </section>
         <section class="view" id="connectionsView" hidden><div class="page-heading"><div><h1>设置与连接</h1></div></div><div class="connection-list">
-          <section class="connection-row"><span class="connection-monogram qq">Q</span><div><h2>QQ</h2><p>账号授权、群消息接收与连接诊断</p></div><button class="button secondary" data-open-connection="qq">管理 QQ</button></section>
-          <section class="connection-row"><span class="connection-monogram wechat">W</span><div><h2>微信</h2><p>本机文本采集、目标群与读取状态</p></div><button class="button secondary" data-open-connection="wechat">管理微信</button></section>
-          <section class="connection-row"><span class="connection-monogram ai">AI</span><div><h2>模型服务</h2><p>本地模型、DeepSeek 或 OpenAI</p></div><button class="button secondary" id="connectionModelBtn">模型设置</button></section>
-          <section class="connection-row reception-filter-row"><span class="connection-monogram" data-icon="settings"></span><div><h2 id="receptionFilterTitle">接收过滤</h2><p id="receptionFilterHint">QQ、微信的简短应答移入垃圾桶，可恢复。仅对新消息生效。</p><p id="receptionFilterError" class="form-error" role="alert"></p></div><span class="reception-filter-control"><span id="receptionFilterStatus" role="status">读取中…</span><button type="button" id="receptionFilterToggle" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="receptionFilterTitle" aria-describedby="receptionFilterHint" disabled><span aria-hidden="true"></span></button><button type="button" id="receptionFilterRetry" class="small-btn" hidden>重试</button></span></section>
+          <section class="connection-row"><span class="connection-monogram qq" data-icon="chat"></span><div><h2>QQ</h2><p>登录与群消息</p></div><button class="button secondary" data-open-connection="qq" aria-label="管理 QQ">管理</button></section>
+          <section class="connection-row"><span class="connection-monogram wechat" data-icon="chats"></span><div><h2>微信</h2><p>本机群消息采集</p></div><button class="button secondary" data-open-connection="wechat" aria-label="管理微信">管理</button></section>
+          <section class="connection-row"><span class="connection-monogram ai" data-icon="model"></span><div><h2>模型服务</h2><p>本地或云端模型</p></div><button class="button secondary" id="connectionModelBtn" aria-label="模型设置">设置</button></section>
+          <section class="connection-row reception-filter-row"><span class="connection-monogram" data-icon="filter"></span><div><h2 id="receptionFilterTitle">接收过滤</h2><p id="receptionFilterHint">简短应答移入垃圾桶，可恢复</p><p id="receptionFilterError" class="form-error" role="alert"></p></div><span class="reception-filter-control"><span id="receptionFilterStatus" role="status">读取中…</span><button type="button" id="receptionFilterToggle" class="reception-filter-switch" role="switch" aria-checked="false" aria-labelledby="receptionFilterTitle" aria-describedby="receptionFilterHint" disabled><span aria-hidden="true"></span></button><button id="receptionFilterRetry" type="button" class="small-btn" hidden>重试</button></span></section>
         </div></section>
         <section class="view" id="qqView" hidden>
           <div class="page-heading compact"><div><h1>QQ 连接</h1><p class="lede">登录授权、接收设置与连接诊断。</p></div><div class="qq-login-actions"><button class="button primary" id="qqLoginBtn" type="button">登录 QQ</button><button class="button secondary" id="qqSettingsBtn" type="button">接收设置</button></div></div>
@@ -83,10 +87,10 @@
   <dialog id="wechatSettingsDialog" aria-labelledby="wechatSettingsTitle"><form class="settings-form" id="wechatForm">
     <div class="dialog-title"><h2 id="wechatSettingsTitle">微信采集设置</h2><button class="close-btn" id="closeWechatSettings" type="button" aria-label="关闭微信采集设置">×</button></div>
     <p class="dialog-copy">请先登录本机电脑版微信。采集期间保持微信运行，窗口可最小化。</p>
-    <label for="wechatAccount">微信号</label><input id="wechatAccount" required maxlength="100" autocomplete="off" aria-describedby="wechatAccountHint" placeholder="个人资料中的微信号，不是昵称"><p id="wechatAccountHint" class="field-hint">仅保存微信号摘要，不保存密码。</p>
-    <label for="wechatGroupInput">目标群名</label><input id="wechatGroupInput" required maxlength="200" placeholder="填写完整群名，避免重名">
+    <label for="wechatAccount">微信号</label><input id="wechatAccount" required maxlength="100" autocomplete="off" aria-describedby="wechatAccountHint" placeholder="个人资料中的微信号，不是昵称"><p id="wechatAccountHint" class="field-hint">微信号加密保存在本机，不保存密码。</p>
+    <div class="wechat-group-heading"><label for="wechatGroupSearch">接收群聊</label><span id="wechatGroupCount" role="status" aria-live="polite">已选 0 / 20</span></div><div id="wechatGroupPicker"></div>
     <p class="form-error" id="wechatSettingsError" role="alert"></p>
-    <div class="settings-actions"><button class="button primary" id="saveWechat" type="submit">保存设置</button></div>
+    <div class="settings-actions"><button class="button secondary" id="clearWechatGroups" type="button" disabled>清空已选</button><button class="button primary" id="saveWechat" type="submit">保存设置</button></div>
     <details class="tip connection-guide"><summary>采集范围与使用说明</summary><p>这是实验性桌面读取，受微信版本和权限影响。首次启动只建立读取位置，不导入旧消息；暂停后恢复会补读仍保留的新文本，无法保证完整历史。程序重启后需手动开始采集。</p><p>仅在本机读取所选账号与群；不发送微信消息。只处理文本，不解析图片、文件或语音。更换账号或目标群前请暂停采集。</p><p>只有点击“分析通知”才调用所选模型；使用官方 API 时，所选原文及发送时间将发送给服务商。核对草稿后才创建待办。</p></details>
   </form></dialog>
   <dialog id="qqLoginDialog" class="qq-login-dialog" aria-labelledby="qqLoginTitle"><div class="settings-form">
@@ -114,13 +118,15 @@
     <div class="qq-login-footer"><button id="qqStartBackground" class="small-btn" type="button">启动并登录</button><a id="qqLoginVerify" target="_blank" rel="noopener noreferrer" hidden>打开 NapCat 管理页</a></div>
   </div></dialog>
   <dialog id="qqSettingsDialog" aria-labelledby="qqSettingsTitle">            <form class="settings-form" id="qqForm">
-              <div class="dialog-title"><div><h2 id="qqSettingsTitle">QQ 接收设置</h2></div><button type="button" class="close-btn" id="closeQQSettings" aria-label="关闭接收设置">×</button></div><div class="panel-header"><div><span class="step">配置</span><h2>群消息接收</h2></div><span class="quiet-tag" id="qqStatus">未启用</span></div>
-              <label class="checkbox-label"><input id="qqEnabled" type="checkbox">启用指定 QQ 群接收</label>
+              <div class="dialog-title"><div><h2 id="qqSettingsTitle">QQ 接收设置</h2></div><button type="button" class="close-btn" id="closeQQSettings" aria-label="关闭接收设置">×</button></div>
+              <p class="dialog-copy">登录 NapCat 后，选择需要接收的群聊。</p>
+              <div class="qq-reception-toggle"><label class="checkbox-label"><input id="qqEnabled" type="checkbox">启用群消息接收</label><span class="quiet-tag" id="qqStatus">未启用</span></div>
               <label for="qqAccount">接收 QQ 号</label><input id="qqAccount" inputmode="numeric" maxlength="20" autocomplete="off" placeholder="登录后自动识别">
-              <label for="qqGroups">接收群号（每行一个）</label><textarea id="qqGroups" rows="3" placeholder="填写需要接收通知的群号"></textarea>
+              <div class="qq-group-heading"><label for="qqGroupSearch">接收群聊</label><span id="qqGroupCount" role="status" aria-live="polite">已选 0 / 100</span></div><div id="qqGroupPicker"></div>
+              <details class="group-manual"><summary>按群号填写</summary><label class="sr-only" for="qqGroups">接收群号，每行一个</label><textarea id="qqGroups" rows="3" placeholder="每行一个群号，保存后更新选择"></textarea></details>
               <label for="qqToken">上报 Token</label><input id="qqToken" type="password" autocomplete="new-password" minlength="16" maxlength="200" placeholder="自动生成；留空保留">
               <p class="field-hint" id="qqTokenStatus">留空保留已保存 Token。</p><button class="small-btn" type="button" id="generateQQToken">生成随机 Token</button><button class="small-btn" type="button" id="showQQToken">显示本次输入</button>
-              <div class="settings-actions"><button class="button primary" type="submit" id="saveQQ">保存接收设置</button></div><p id="qqError" class="form-error" role="alert"></p>
+              <p id="qqError" class="form-error" role="alert"></p><div class="settings-actions"><button class="button secondary" id="clearQQGroups" type="button" disabled>清空已选</button><button class="button primary" type="submit" id="saveQQ">保存设置</button></div>
               <details class="tip connection-guide"><summary>连接帮助</summary><p>登录后自动识别 QQ 号。启用接收并保存群号后，自动配置 HTTP 上报；换号无需手动复制 Token。配置失败时点击“检查连接”重试。拾序与 NapCat 均需运行。</p><code id="qqCallback"></code><p>仅在自动配置失败时，前往管理页检查上方回调地址、array 消息格式及上报 Token。</p><p><a href="https://napneko.github.io/guide/start-install" target="_blank" rel="noopener noreferrer">NapCat 安装说明</a> · <a href="https://napneko.github.io/config/basic" target="_blank" rel="noopener noreferrer">连接配置说明</a></p><p>NapCat 为第三方工具，可能受 QQ 版本与账号风控影响。仅解析新文本，不解析图片、文件和历史消息。</p></details>
             </form></dialog>
   <dialog id="settingsDialog" aria-labelledby="modelSettingsTitle"><form method="dialog" class="settings-form" id="settingsForm"><div class="dialog-title"><div><h2 id="modelSettingsTitle">模型设置</h2></div><button class="close-btn" value="cancel" aria-label="关闭">×</button></div><p class="dialog-copy">配置模型服务与模型 ID。</p><label for="baseUrl">API 地址</label><input id="baseUrl" required><label for="modelId">模型 ID</label><input id="modelId" placeholder="从 LM Studio 的模型列表复制"><div class="settings-actions"><button class="button secondary" type="button" id="detectModelsBtn">检测模型</button><button class="button primary" value="default">保存设置</button></div><p class="form-error" id="settingsError" role="alert"></p><div id="modelOptions" class="model-options"></div></form></dialog>
@@ -136,6 +142,7 @@
   </dialog>
   <script src="/static/icons.js" defer></script>
   <script src="/static/core.js" defer></script>
+  <script src="/static/group-picker.js" defer></script>
   <script src="/static/tasks.js" defer></script>
   <script src="/static/task-search.js" defer></script>
   <script src="/static/task-detail.js" defer></script>
@@ -147,7 +154,10 @@
   <script src="/static/wechat.js" defer></script>
   <script src="/static/qq-quick.js" defer></script>
   <script src="/static/qq-login.js" defer></script>
+  <script src="/static/settings-controls.js" defer></script>
   <script src="/static/connections.js" defer></script>
   <script src="/static/automation.js" defer></script>
+  <script src="/static/history.js" defer></script>
+  <script src="/static/reminders.js" defer></script>
 </body>
 </html>

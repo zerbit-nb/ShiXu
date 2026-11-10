@@ -8,6 +8,8 @@
   --nav:#f0f2f5;
   --line:#e6e9ef;
   --control-line:#cbd1dc;
+  --scroll-thumb:var(--control-line);
+  --scroll-thumb-hover:var(--muted);
   --primary:#2d60c7;
   --primary-hover:#2455b6;
   --primary-soft:#e8effd;

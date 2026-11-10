@@ -18,7 +18,7 @@ async function loadTasks(options = {}) {
     const data=await api(`/api/tasks?view=${state.filter}&remind_hours=${reminderHours}`);
     if(request!==state.taskRequest)return;state.tasks=data.tasks;state.tasksLoaded=true;renderTaskList();
     const urgent=data.tasks.filter(t=>t.reminder&&(state.route!=='upcoming'||taskDayGroup(t)!=='overdue'));$('#reminderStrip').hidden=!urgent.length;
-    $('#reminderStrip').textContent=`${urgent.length} 条任务需关注 · 仅在应用打开时提醒`;
+    $('#reminderStrip').textContent=state.route==='tasks'?`${urgent.length} 条待办需关注`:`${urgent.length} 条任务需关注 · 仅在应用打开时提醒`;
     if (button) toast('待办已刷新。');
   }catch(error){if(request!==state.taskRequest)return;state.tasksLoaded=false;state.tasksError=true;updateCompletedControls();renderTaskSearch();$('#taskResultCount').textContent='读取失败';$('#taskList').innerHTML=`<div class="empty"><strong>任务读取失败</strong>${esc(error.message)}，请点击刷新。</div>`;if(button)toast('待办刷新失败，请重试。');}
   finally { if(request===state.taskRequest)$('#taskList').removeAttribute('aria-busy');if (button) { await new Promise(resolve=>setTimeout(resolve, Math.max(0,400-(performance.now()-started)))); setButtonBusy(button, false); } }

@@ -4,6 +4,8 @@ function syncTaskNavigation(){
   if(state.filter==='completed')state.route='completed';
   else if(state.route!=='upcoming'||state.filter!=='pending')state.route='tasks';
   $('#taskPageTitle').textContent=viewNames[state.route];
+  // Presentation scope: the first redesign applies only to the task home.
+  $('#tasksView').dataset.page=state.route;
   $('#taskPageHint').textContent=state.route==='completed'?'做过的事，都在这里。':state.route==='upcoming'?'按截止日期，安排接下来的事。':'先完成眼前重要的事。';
   document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===state.route;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $('#viewLabel').textContent=viewNames[state.route];

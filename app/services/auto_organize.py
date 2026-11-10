@@ -8,6 +8,7 @@ from app.database import utc_now
 from app.services.extraction import normalize_extraction
 from app.services.matching import change_notice, find_matches
 from app.services.llm_service import AutoExtractionResult
+from app.services.history import init_history
 
 
 class AutoOrganizer:
@@ -16,10 +17,12 @@ class AutoOrganizer:
         self.revision = 0
         self.error = None
         self.retry_at = 0
+        init_history(db)
         db.conn.executescript("""
         CREATE TABLE IF NOT EXISTS automation_settings (id INTEGER PRIMARY KEY CHECK(id=1),
             enabled INTEGER NOT NULL, allow_local INTEGER NOT NULL, start_rowid INTEGER NOT NULL);
         INSERT OR IGNORE INTO automation_settings VALUES (1,0,0,0);
+        UPDATE automation_settings SET allow_local=0 WHERE enabled=0 AND allow_local!=0;
         CREATE TABLE IF NOT EXISTS automation_jobs (message_id TEXT PRIMARY KEY REFERENCES messages(id),
             outcome TEXT NOT NULL, updated_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS automation_notices (id TEXT PRIMARY KEY, source TEXT NOT NULL,
@@ -44,6 +47,8 @@ class AutoOrganizer:
                     state=reason, error=self.error)
 
     def configure(self, enabled, allow_local):
+        # Local work is a child permission, reset whenever its parent is off.
+        allow_local = enabled and allow_local
         previous = self.public()
         with self.db.conn:
             if enabled and not previous['enabled']:
@@ -68,6 +73,8 @@ class AutoOrganizer:
             AND NOT EXISTS (SELECT 1 FROM automation_jobs j WHERE j.message_id=m.id)
             AND NOT EXISTS (SELECT 1 FROM message_trash t WHERE t.message_id=m.id)
             AND NOT EXISTS (SELECT 1 FROM drafts d WHERE d.message_id=m.id)
+            AND NOT EXISTS (SELECT 1 FROM history_messages h JOIN history_runs r ON r.id=h.run_id
+                WHERE h.message_id=m.id AND (h.auto_allowed=0 OR r.state!='complete'))
             ORDER BY m.rowid LIMIT 1""").fetchone()
         if not row:
             return
@@ -172,6 +179,8 @@ class AutoOrganizer:
             AND m.extraction_status IN ('received','extracting')
             AND NOT EXISTS (SELECT 1 FROM message_trash t WHERE t.message_id=m.id)
             AND NOT EXISTS (SELECT 1 FROM drafts d WHERE d.message_id=m.id)
+            AND NOT EXISTS (SELECT 1 FROM history_messages h JOIN history_runs r ON r.id=h.run_id
+                WHERE h.message_id=m.id AND (h.auto_allowed=0 OR r.state!='complete'))
             AND NOT EXISTS (SELECT 1 FROM automation_jobs j WHERE j.message_id=m.id AND j.outcome!='running')""").fetchone()[0]
 
     def acknowledge(self, identity):

@@ -7,6 +7,28 @@
 #wechatState[data-state=error],#wechatState[data-state=unknown] {color:var(--danger)}
 #wechatGap {color:var(--warning)}
 #wechatMessages {overflow-wrap:anywhere}
+/* Keep this focused dialog compact while following the shared settings theme. */
+#wechatForm .dialog-title {margin-bottom:6px}
+#wechatForm .dialog-title h2 {font-size:18px;font-weight:600}
+#wechatForm .dialog-copy {font-size:12px;line-height:1.7;margin:0 0 22px}
+#wechatAccount {border-radius:12px;margin-bottom:0}
+#wechatAccountHint {font-size:11px;margin:6px 0 22px}
+.wechat-group-heading {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.wechat-group-heading label {margin:0}
+#wechatGroupCount {font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+#wechatForm .settings-actions {position:static;justify-content:space-between;align-items:center;border:0;margin-top:22px;padding:0;gap:12px}
+#wechatForm .settings-actions .button {flex:none;min-height:38px;border-radius:999px;padding:8px 20px;font-size:13px}
+#wechatForm #clearWechatGroups {border:0;background:transparent;color:var(--muted);padding:8px 0}
+#wechatForm #clearWechatGroups:hover:not(:disabled) {color:var(--ink)}
+#wechatForm .connection-guide {margin-top:18px;padding:12px 14px;border-radius:12px;background:var(--paper)}
+#wechatForm .connection-guide summary {display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;font-size:12px;color:var(--ink);margin-bottom:0}
+#wechatForm .connection-guide summary::before {display:none}
+#wechatForm .connection-guide summary::-webkit-details-marker {display:none}
+#wechatForm .connection-guide summary::after {content:'';width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);margin:0 3px 4px;flex:none}
+#wechatForm .connection-guide[open] summary::after {transform:rotate(225deg);margin-bottom:0}
+@media(max-width:480px) {
+  #wechatForm .dialog-title h2 {font-size:18px}
+}
 @media(max-width:600px) {
   .wechat-control {padding:20px 16px}
   .wechat-control-body {align-items:stretch;flex-direction:column;gap:12px}

@@ -156,6 +156,37 @@ def query_page(db,group,cursors):
     return result
 
 
+def query_history(db, group, cursors, boundary, since, until):
+    """Read a bounded plaintext snapshot without changing the live checkpoint."""
+    marks(cursors); marks(boundary)
+    low, high = datetime.fromisoformat(since).timestamp(), datetime.fromisoformat(until).timestamp()
+    def build(tables):
+        found = {canonical_shard(db._shard_label(conn)) for conn, table in tables}
+        if not set(boundary) <= found:
+            raise SourceError('source_shard_missing')
+        maps = db._shard_maps(tables)
+        after, events = dict(cursors), []
+        quota = max(1, MAX_BATCH // max(len(boundary), 1))
+        for conn, table in tables:
+            shard = canonical_shard(db._shard_label(conn))
+            if shard not in boundary:
+                continue
+            rows = db._shard_rows([(conn, table)],
+                'WHERE local_id > ? AND local_id <= ? AND create_time >= ? AND create_time <= ?',
+                (cursors.get(shard, 0), boundary[shard], low, high),
+                order_ext='ORDER BY local_id ASC', per_shard_limit=quota)
+            for row in rows:
+                event = to_event(db._msg_row_to_dict(row, maps))
+                if not after.get(shard, 0) < event['local_id'] <= boundary[shard]:
+                    raise SourceError('unordered_source')
+                events.append(event); after[shard] = event['local_id']
+        return events, after
+    result = db._run_msg_query(group, build)
+    if result is None and boundary:
+        raise SourceError('source_shard_missing')
+    return result or ([], dict(cursors))
+
+
 class Reader:
     def __init__(self,module,quiet,profile,cache):
         self.module,self.quiet,self.profile,self.cache=module,quiet,profile,cache
@@ -164,7 +195,7 @@ class Reader:
     def pids(self):return frozenset(self.pid_reader._find_weixin_pids())
     def close(self):
         if self.db is not None:self.db._keys.clear();self.db=None
-    def ensure(self):
+    def ensure(self,discovery=False):
         pids=self.pids()
         if not pids:
             self.close();self.validated=frozenset();return False
@@ -193,24 +224,50 @@ class Reader:
                 row=conn.execute('SELECT alias FROM contact WHERE username=?',(db.wxid,)).fetchone()
                 if not row or hashlib.sha256((row[0] or '').encode()).hexdigest()!=self.profile['alias_hash']:
                     raise SourceError('account_changed')
-                groups=conn.execute("SELECT username FROM contact WHERE username LIKE '%@chatroom' AND (nick_name=? OR remark=?)",
-                                    (self.profile['group_name'],self.profile['group_name'])).fetchall()
-            if len(groups)!=1:raise SourceError('group_not_unique')
-            group=groups[0][0]
-            identity={'account':hashlib.sha256(account.encode()).hexdigest(),'group':hashlib.sha256(group.encode()).hexdigest()}
+                rows=conn.execute("SELECT username,nick_name,remark FROM contact WHERE username LIKE '%@chatroom' LIMIT 5001").fetchall()
+            if len(rows)>5000:raise SourceError('group_list_failed')
+            available={r[0]:{'id':r[0],'name':(r[2] or r[1] or r[0])[:200]} for r in rows}
+            self.available_groups=sorted(available.values(),key=lambda g:(g['name'],g['id']))
+            if discovery:
+                if self.pids()!=pids:raise SourceError('process_changed')
+                if self.quiet.warning_count:raise SourceError('snapshot_warning')
+                return True
+            selected=self.profile.get('groups') or []
+            if selected:
+                if any(g['id'] not in available for g in selected):raise SourceError('group_missing')
+                group=selected[0]['id']
+                identities={g['id']:{'account':hashlib.sha256(account.encode()).hexdigest(),
+                                    'group':hashlib.sha256(g['id'].encode()).hexdigest()} for g in selected}
+            else:
+                groups=[r[0] for r in rows if self.profile['group_name'] in (r[1],r[2])]
+                if len(groups)!=1:raise SourceError('group_not_unique')
+                group=groups[0]
+                identities={'':{'account':hashlib.sha256(account.encode()).hexdigest(),'group':hashlib.sha256(group.encode()).hexdigest()}}
+            identity=identities[selected[0]['id'] if selected else '']
             if self.identity is not None and self.identity!=identity:raise SourceError('identity_changed')
+            if hasattr(self,'identities') and self.identities!=identities:raise SourceError('identity_changed')
             if self.pids()!=pids:raise SourceError('process_changed')
             if self.quiet.warning_count:raise SourceError('snapshot_warning')
             self.identity,self.group,self.validated,self.last_check=identity,group,pids,time.monotonic()
+            self.identities=identities
         return True
-    def read(self,cursors):
+    def read(self,cursors,group_id=None):
         if self.db is None:raise SourceError('not_logged_in')
         self.quiet.warning_count=0
         # Upstream suppresses repeated warnings; rearm to reject every partial snapshot.
         self.db._warned_keys=set()
-        value=query_page(self.db,self.group,cursors)
+        value=query_page(self.db,group_id or self.group,cursors)
+        self._verify_read()
+        return value
+    def history(self,cursors,boundary,since,until,group_id=None):
+        if self.db is None:raise SourceError('not_logged_in')
+        self.quiet.warning_count=0
+        self.db._warned_keys=set()
+        value=query_history(self.db,group_id or self.group,cursors,boundary,since,until)
+        self._verify_read()
+        return value
+    def _verify_read(self):
         if self.pids()!=self.validated:raise SourceError('process_changed')
         if self.quiet.warning_count:raise SourceError('snapshot_warning')
         if sum(p.stat().st_size for p in self.cache.rglob('*') if p.is_file())>8*1024**3:
             raise SourceError('disk_budget_exceeded')
-        return value

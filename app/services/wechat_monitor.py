@@ -9,13 +9,20 @@ import shutil
 import subprocess
 import sys
 from uuid import uuid4
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.secrets import protect, unprotect
+from app.services.wechat_groups import WeChatGroup, MAX_GROUPS, group_profiles
 from app.services import wechat_store as store
+from app.services.history import init_history, enabled as history_enabled, begin_run, finish_run, window
 
 MAX_FRAME = 4*1024*1024
 ROOT = Path(__file__).resolve().parents[2]
 MESSAGES = {
     'not_configured':'请先设置微信号和目标群。',
+    'account_save_failed':'微信号未能加密保存，请检查当前 Windows 用户权限。',
+    'group_list_failed':'群列表读取失败，请确认电脑微信已登录后重试。',
+    'discovery_cancelled':'群列表读取已取消。',
+    'group_missing':'所选群在本机数据中不可用，请暂停后刷新群列表。',
     'busy':'另一个微信采集器正在运行。',
     'configure_while_running':'请先停止采集再修改配置。',
     'not_logged_in':'等待电脑微信登录。',
@@ -54,7 +61,16 @@ class SavedConfig(BaseModel):
     model_config=ConfigDict(extra='forbid',strict=True)
     group_name:str=Field(default='',max_length=200)
     alias_hash:str=Field(default='',pattern=r'^([0-9a-f]{64})?$')
+    encrypted_alias:str=Field(default='',max_length=4096)
+    groups:list[WeChatGroup]=Field(default_factory=list,max_length=MAX_GROUPS)
     paused:bool=True
+
+    @field_validator('groups')
+    @classmethod
+    def unique_groups(cls, value):
+        if len({g.id for g in value}) != len(value):
+            raise ValueError('请勿重复选择同一个群')
+        return value
 
 
 def protect_directory(path):
@@ -126,9 +142,11 @@ class Lease:
 class WeChatMonitor:
     def __init__(self,db,path):
         self.db,self.path=db,Path(path)
+        init_history(db)
         self.root=self.path.parent/'runtime/wechat-receiver'
-        self.lock=asyncio.Lock();self.task=None;self.generation=None
+        self.lock=asyncio.Lock();self.task=None;self.discovery_task=None;self.generation=None
         self.state='paused';self.reason=None;self.gap_possible=False;self.diagnostic=None
+        self.history_permission=lambda:False
         self.private=None;self.lease=None;self.proc=None
         self.config=SavedConfig()
         try:
@@ -138,7 +156,12 @@ class WeChatMonitor:
         self.config.paused=True
         self.spawn=self._spawn
     def public_config(self):
-        return {'group_name':self.config.group_name,'has_account':bool(self.config.alias_hash),'paused':self.state not in {'starting','listening','waiting'}}
+        return {'group_name':self.config.group_name,'groups':[g.model_dump() for g in self.config.groups],
+                'has_account':bool(self.config.alias_hash),'paused':self.state not in {'starting','listening','waiting'}}
+    def edit_config(self):
+        try:alias=unprotect(self.config.encrypted_alias)
+        except (ValueError,OSError):alias=''
+        return {**self.public_config(),'account_alias':alias}
     def status(self):
         count=self.db.conn.execute('SELECT count(*) FROM wechat_receipts WHERE message_id IS NOT NULL').fetchone()[0]
         return {**self.public_config(),'state':self.state,'reason':self.reason,
@@ -147,13 +170,18 @@ class WeChatMonitor:
     def _save(self):
         temp=self.path.with_suffix('.tmp')
         temp.write_text(self.config.model_dump_json(),encoding='utf-8');temp.replace(self.path)
-    async def configure(self,group_name,account_alias):
+    async def configure(self,group_name,account_alias,groups=None):
         async with self.lock:
             if self.state=='stopping' or (self.task and not self.task.done()):raise MonitorError('configure_while_running')
             group_name,account_alias=group_name.strip(),account_alias.strip()
+            selected=[WeChatGroup.model_validate(g) for g in (groups or [])]
+            if selected:group_name=selected[0].name
             if not group_name or not account_alias:raise MonitorError('not_configured')
+            try:encrypted=protect(account_alias)
+            except (ValueError,OSError):raise MonitorError('account_save_failed') from None
             old=self.config
-            self.config=SavedConfig(group_name=group_name,alias_hash=hashlib.sha256(account_alias.encode()).hexdigest())
+            self.config=SavedConfig(group_name=group_name,alias_hash=hashlib.sha256(account_alias.encode()).hexdigest(),
+                                    encrypted_alias=encrypted,groups=selected)
             try:self._save()
             except OSError:
                 self.config=old
@@ -174,7 +202,8 @@ class WeChatMonitor:
                 (self.private/'owner.json').write_text(json.dumps({'worker_pid':None}),encoding='utf-8')
                 self.config.paused=False;self._save()
                 self.generation=uuid4().hex;self.state='starting';self.reason=None;self.diagnostic=None
-                self.task=asyncio.create_task(self._run(self.generation,self.config.model_dump(),self.private))
+                profile=self.config.model_dump(exclude={'encrypted_alias'})
+                self.task=asyncio.create_task(self._run(self.generation,profile,self.private))
             except Exception:
                 self.config.paused=True
                 self.lease.close();self.lease=None
@@ -183,6 +212,12 @@ class WeChatMonitor:
             await asyncio.sleep(0)  # Ensure the child supervisor has entered its cleanup scope.
             return self.status()
     async def stop(self):
+        discovery=self.discovery_task
+        if discovery is not None and not discovery.done():
+            discovery.cancel()
+            try:await discovery
+            except asyncio.CancelledError:pass
+            except MonitorError:pass
         async with self.lock:
             if self.state=='stopping':return self.status()
             self.config.paused=True
@@ -208,8 +243,69 @@ class WeChatMonitor:
             creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     async def _send(self,proc,value):
         proc.stdin.write((json.dumps(value,ensure_ascii=False)+'\n').encode('utf-8'));await proc.stdin.drain()
+    async def discover(self,account_alias):
+        if self.discovery_task is not None and not self.discovery_task.done():raise MonitorError('busy')
+        task=asyncio.create_task(self._discover(account_alias))
+        self.discovery_task=task
+        try:return await task
+        except asyncio.CancelledError:raise MonitorError('discovery_cancelled') from None
+        finally:
+            if self.discovery_task is task:self.discovery_task=None
+
+    async def _discover(self,account_alias):
+        """Use the capture worker's read-only guard and lease, without saving or starting capture."""
+        async with self.lock:
+            if self.state in {'starting','listening','waiting','stopping'} or (self.task and not self.task.done()):
+                raise MonitorError('configure_while_running')
+            alias=account_alias.strip()
+            if not alias:raise MonitorError('not_configured')
+            await asyncio.to_thread(protect_directory,self.root)
+            lease=Lease(self.root/'receiver.lock');private=None;proc=None
+            try:
+                clean_stale_sessions(self.root)
+                private=self.root/('session-'+uuid4().hex);private.mkdir()
+                (private/'owner.json').write_text(json.dumps({'worker_pid':None}),encoding='utf-8')
+                launch=asyncio.create_task(self._spawn(private))
+                try:proc=await asyncio.shield(launch)
+                except asyncio.CancelledError:
+                    proc=await launch
+                    raise
+                (private/'owner.json').write_text(json.dumps({'worker_pid':proc.pid}),encoding='utf-8')
+                profile=SavedConfig(alias_hash=hashlib.sha256(alias.encode()).hexdigest()).model_dump(exclude={'encrypted_alias'})
+                generation=uuid4().hex
+                await self._send(proc,dict(type='configure',mode='groups',generation=generation,profile=profile))
+                raw=await asyncio.wait_for(proc.stdout.readline(),timeout=60)
+                if not raw or len(raw)>MAX_FRAME:raise MonitorError('group_list_failed')
+                frame=json.loads(raw)
+                if frame.get('generation')!=generation:raise MonitorError('group_list_failed')
+                if frame.get('type')=='error':
+                    code=frame.get('reason')
+                    raise MonitorError(code if code in MESSAGES else 'group_list_failed')
+                if frame.get('type')!='groups' or not isinstance(frame.get('groups'),list) or len(frame['groups'])>5000:
+                    raise MonitorError('group_list_failed')
+                groups=[WeChatGroup.model_validate(g).model_dump() for g in frame['groups']]
+                await asyncio.wait_for(proc.wait(),timeout=5)
+                if proc.returncode!=0:raise MonitorError('group_list_failed')
+                return {'groups':groups,'limit':MAX_GROUPS}
+            except TimeoutError:raise MonitorError('source_timeout') from None
+            except (ValueError,KeyError,TypeError) as exc:
+                if isinstance(exc,MonitorError):raise
+                raise MonitorError('group_list_failed') from None
+            finally:
+                cleaned=True
+                if proc is not None and proc.returncode is None:
+                    try:
+                        proc.kill();await asyncio.wait_for(proc.wait(),timeout=5)
+                    except Exception:cleaned=False
+                if private is not None and cleaned:
+                    try:safe_cleanup(private,self.root)
+                    except (OSError,MonitorError):cleaned=False
+                lease.close()
+                if not cleaned:
+                    self.state='error';self.reason='cleanup_failed'
+                    raise MonitorError('cleanup_failed')
     async def _run(self,generation,profile,private):
-        proc=None;scope=None;phase='spawn'
+        proc=None;phase='spawn';scopes={};identities={};ready_groups=set();profiles=group_profiles(profile);history_runs={}
         try:
             launch=asyncio.create_task(self.spawn(private))
             try:proc=await asyncio.shield(launch)
@@ -228,22 +324,57 @@ class WeChatMonitor:
                     if generation!=self.generation:return
                     if frame.get('generation')!=generation:raise MonitorError('source_error')
                     kind=frame.get('type');phase='handle_frame'
+                    group_id=frame.get('group_id','')
+                    if kind in {'hello','baseline','batch','history_started','history_batch','history_done'} and group_id not in profiles:
+                        raise MonitorError('source_error')
+                    tagged={'group_id':group_id} if group_id else {}
                     if kind=='hello':
-                        if scope is not None:raise MonitorError('source_error')
-                        scope=store.bind(self.db,profile,frame['identity'])
-                        await self._send(proc,dict(type='resume',cursors=store.checkpoint(self.db,scope)))
+                        if group_id in scopes:raise MonitorError('source_error')
+                        identity=frame['identity']
+                        if group_id and identity.get('group')!=hashlib.sha256(group_id.encode()).hexdigest():
+                            raise MonitorError('identity_changed')
+                        if scopes and any(store_identity['account']!=identity.get('account') for store_identity in identities.values()):
+                            raise MonitorError('account_changed')
+                        scope=store.bind(self.db,profiles[group_id],identity)
+                        scopes[group_id]=scope;identities[group_id]=identity
+                        history={}
+                        if history_enabled(self.db):
+                            since,until=window()
+                            history_runs[group_id]=begin_run(self.db,'wechat',scope,since,until,self.history_permission())
+                            history={'history_since':since}
+                        await self._send(proc,dict(type='resume',cursors=store.checkpoint(self.db,scope),**tagged,**history))
+                    elif kind=='history_started':
+                        run=history_runs.get(group_id)
+                        from datetime import datetime
+                        if run is None or datetime.fromisoformat(frame['until']).tzinfo is None:raise MonitorError('source_error')
+                        with self.db.conn:self.db.conn.execute('UPDATE history_runs SET until=? WHERE id=?',(frame['until'],run))
+                    elif kind=='history_batch':
+                        run=history_runs.get(group_id)
+                        if run is None:raise MonitorError('source_error')
+                        if history_enabled(self.db):
+                            store.commit_history(self.db,scopes[group_id],profiles[group_id],frame['rows'],run)
+                        await self._send(proc,dict(type='history_ack',**tagged))
+                    elif kind=='history_done':
+                        run=history_runs.get(group_id)
+                        if run is None:raise MonitorError('source_error')
+                        complete=frame.get('complete') is True and history_enabled(self.db)
+                        finish_run(self.db,run,'complete' if complete else 'partial',None if complete else 'source_limit')
                     elif kind=='baseline':
+                        scope=scopes.get(group_id)
                         if scope is None:raise MonitorError('source_error')
                         store.baseline(self.db,scope,frame['cursors'])
-                        await self._send(proc,dict(type='ack',cursors=store.checkpoint(self.db,scope)))
-                        self.state='listening';self.reason=None
+                        await self._send(proc,dict(type='ack',cursors=store.checkpoint(self.db,scope),**tagged))
+                        ready_groups.add(group_id)
+                        self.state='listening' if len(ready_groups)==len(profiles) else 'starting';self.reason=None
                     elif kind=='batch':
+                        scope=scopes.get(group_id)
                         if scope is None:raise MonitorError('source_error')
-                        after=store.commit_batch(self.db,scope,profile,frame['before'],frame['rows'],frame['after'])
-                        await self._send(proc,dict(type='ack',cursors=after))
-                        self.state='listening';self.reason=None
+                        after=store.commit_batch(self.db,scope,profiles[group_id],frame['before'],frame['rows'],frame['after'])
+                        await self._send(proc,dict(type='ack',cursors=after,**tagged))
+                        ready_groups.add(group_id)
+                        self.state='listening' if len(ready_groups)==len(profiles) else 'starting';self.reason=None
                     elif kind=='status' and frame.get('state') in {'waiting','listening'}:
-                        if frame['state']=='listening' and scope is None:raise MonitorError('source_error')
+                        if frame['state']=='listening' and len(scopes)!=len(profiles):raise MonitorError('source_error')
                         self.state=frame['state']
                         code=frame.get('reason')
                         self.reason=code if code in MESSAGES else ('source_error' if code else None)
@@ -289,3 +420,10 @@ class WeChatMonitor:
                 if self.lease:self.lease.close();self.lease=None
             else:self.reason='cleanup_failed';self.state='error'
             self.proc=None;self.generation=None
+            # Database failures must never prevent child/cache cleanup above.
+            try:
+                for run in history_runs.values():
+                    row=self.db.conn.execute('SELECT state FROM history_runs WHERE id=?',(run,)).fetchone()
+                    if row and row['state']=='collecting':finish_run(self.db,run,'partial','interrupted')
+            except Exception:
+                if self.reason!='cleanup_failed':self.reason='database_error';self.state='error'

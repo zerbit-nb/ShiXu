@@ -64,7 +64,7 @@ class QQLogin:
         return 'NapCat 拒绝了登录请求，返回内容未提供可识别的具体原因。不能据此认定密码错误，请在管理页检查本次登录。'
 
     async def call(self, route, payload=None):
-        allowed = {'CheckLoginStatus', 'GetQQLoginInfo', 'GetQQLoginQrcode', 'RefreshQRcode', 'PasswordLogin', 'GetNewDeviceQRCode', 'PollNewDeviceQR', 'NewDeviceLogin', 'GetQuickLoginList', 'GetQuickLoginListNew', 'SetQuickLogin'}
+        allowed = {'CheckLoginStatus', 'GetQQLoginInfo', 'GetQQLoginQrcode', 'RefreshQRcode', 'PasswordLogin', 'GetNewDeviceQRCode', 'PollNewDeviceQR', 'NewDeviceLogin', 'GetQuickLoginList', 'GetQuickLoginListNew', 'SetQuickLogin', 'GetGroupList', 'GetGroupHistory'}
         if route not in allowed:
             raise ValueError('Unsupported login route')
         install, url, secret = self.installation()
@@ -83,7 +83,10 @@ class QQLogin:
                         self.bridge.credential = data['Credential']
                         self.bridge.auth_key, self.bridge.auth_at = key, time.monotonic()
                     # Native passwordLogin can wait for the user's phone authorization.
-                    response = await client.post('/api/QQLogin/'+route, json=payload or {},
+                    path='/api/Debug/call' if route in {'GetGroupList','GetGroupHistory'} else '/api/QQLogin/'+route
+                    request_body=({'action':'get_group_list','params':{}} if route=='GetGroupList' else
+                                  {'action':'get_group_msg_history','params':payload or {}} if route=='GetGroupHistory' else payload or {})
+                    response = await client.post(path, json=request_body,
                                                  headers={'Authorization': 'Bearer '+self.bridge.credential},
                                                  timeout=httpx.Timeout(15, read=300) if route in {'PasswordLogin','NewDeviceLogin','SetQuickLogin'} else 15)
                     if response.status_code in {401, 403}:
@@ -92,6 +95,8 @@ class QQLogin:
                     response.raise_for_status()
                     body = response.json()
                     if body.get('code') != 0:
+                        if route=='GetGroupList':
+                            raise LoginError('group_list_failed','QQ 群列表读取失败，请确认 NapCat 已登录后重试。',url)
                         # Upstream messages may contain credentials or verification URLs.
                         raise LoginError('login_error', self.rejection_message(body.get('message')), url)
                     self.start_error = None
@@ -108,6 +113,50 @@ class QQLogin:
                 raise LoginError('not_running', 'NapCat 尚未就绪或连接超时，请稍后重试启动。', url) from None
             except (ValueError, TypeError, AttributeError, KeyError):
                 raise LoginError('config_error', 'NapCat 登录接口返回格式异常，请检查版本。', url) from None
+
+    async def history(self, account, group, anchor=None):
+        async with self.action_lock:
+            if self.policy.paused:
+                raise LoginError('qq_offline', 'QQ 补收等待登录。')
+            before = await self.status(account)
+            if not before.get('online') or before.get('account_id') != account:
+                raise LoginError('qq_offline', 'QQ 补收等待已配置的账号登录。')
+            params = {'group_id':group, 'count':100, 'reverse_order':False,
+                      'disable_get_url':True, 'parse_mult_msg':False, 'quick_reply':False}
+            if anchor is not None:
+                params['message_seq'] = str(anchor)
+            data, url = await self.call('GetGroupHistory', params)
+            if isinstance(data,dict) and data.get('retcode') == 0 and data.get('status') == 'ok':
+                data = data.get('data')
+            after = await self.status(account)
+            if not after.get('online') or after.get('account_id') != account:
+                raise LoginError('account_mismatch', '补收期间 QQ 账号变化，请重新检查连接。')
+            if not isinstance(data,dict) or not isinstance(data.get('messages'),list) or len(data['messages']) > 100:
+                raise LoginError('history_failed', 'QQ 历史消息格式不兼容，请检查 NapCat 版本。', url)
+            return data['messages']
+
+    async def groups(self,account):
+        async with self.action_lock:
+            if self.policy.paused:raise LoginError('qq_offline','请先登录 QQ，再读取群列表。')
+            before=await self.status(account)
+            if not before.get('online'):raise LoginError('qq_offline','请先登录 QQ，再读取群列表。')
+            if before.get('account_id')!=account:raise LoginError('account_mismatch','QQ 账号已变化，请检查连接后重新读取群列表。')
+            data,url=await self.call('GetGroupList')
+            if isinstance(data,dict) and data.get('retcode')==0 and data.get('status')=='ok':data=data.get('data')
+            if not isinstance(data,list) or len(data)>5000:
+                raise LoginError('group_list_failed','QQ 群列表格式不兼容，请检查 NapCat 版本。',url)
+            groups={}
+            for group in data:
+                if not isinstance(group,dict):raise LoginError('group_list_failed','QQ 群列表格式不兼容。',url)
+                ident=str(group.get('group_id',''))
+                name=group.get('group_name')
+                if not re.fullmatch(r'[1-9][0-9]{4,19}',ident) or not isinstance(name,str):
+                    raise LoginError('group_list_failed','QQ 群列表格式不兼容。',url)
+                groups[ident]={'id':ident,'name':name[:200] or ident}
+            after=await self.status(account)
+            if not after.get('online') or after.get('account_id')!=account:
+                raise LoginError('account_mismatch','读取期间 QQ 账号已变化，请重试。')
+            return {'groups':sorted(groups.values(),key=lambda g:(g['name'],g['id'])),'account_id':account,'limit':100}
 
     async def management_alive(self, url):
         async with httpx.AsyncClient(timeout=2, trust_env=False, transport=self.bridge.transport) as client:

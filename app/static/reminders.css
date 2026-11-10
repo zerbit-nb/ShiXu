@@ -1,0 +1,31 @@
+.reminder-preferences{max-width:540px}
+.reminder-preference-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 16px;align-items:center;margin-top:16px}
+.reminder-preference-grid input,.reminder-preference-grid select,.individual-reminder-control select{min-height:34px;min-width:0;border:1px solid var(--line);border-radius:var(--radius-control,6px);background:var(--surface);color:var(--ink);font:inherit;padding:6px 8px}
+.reminder-preference-grid input[type=checkbox]{min-height:0;padding:0;accent-color:var(--primary)}
+.reminder-preference-grid label{display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400}
+.reminder-preference-grid input[type=checkbox]{width:14px;height:14px;flex:none}
+.connection-row:has(.history-help[open]){align-items:flex-start}
+.connection-row:has(.history-help[open]) .reception-filter-control{padding-top:2px}
+.connection-row #taskReminderError{color:var(--danger)}
+.reminder-quiet-time{display:flex;align-items:center;gap:8px;min-width:0}
+.reminder-quiet-time input{width:calc(50% - 12px)}
+.reminder-settings-actions,.individual-reminder-control{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.individual-reminder-control select{flex:1;min-width:120px}
+#taskReminderStatus{font-size:12px;color:var(--muted)}
+#taskReminderError:empty,#individualReminderError:empty,#taskReminderCardError:empty{display:none}
+#taskReminderDetail{padding:16px 0;border-top:1px solid var(--line);margin-top:16px}
+#taskReminderDetail h3{margin:0 0 8px;font-size:13px}
+.task-reminder-card{position:fixed;right:24px;bottom:24px;z-index:40;width:min(400px,calc(100vw - 32px));max-height:min(560px,calc(100dvh - 48px));display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius-panel);background:var(--surface);color:var(--ink);box-shadow:0 8px 32px #18243a14}
+.task-reminder-card[hidden]{display:none}
+.task-reminder-card header{display:flex;justify-content:space-between;align-items:center;padding:18px 20px 12px}
+.task-reminder-card h2{margin:0;font-size:16px}
+.task-reminder-card header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.task-reminder-card ul{list-style:none;margin:0;padding:0 20px;overflow-y:auto;min-height:0;overscroll-behavior:contain}
+.task-reminder-card li{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line)}
+.task-reminder-card li>div:first-child{min-width:0}
+.task-reminder-card h3{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.task-reminder-card li p{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.reminder-task-actions{display:flex;gap:4px;flex-shrink:0}
+.task-reminder-card footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--line)}
+.task-reminder-card .form-error{padding:0 20px;font-size:12px}
+@media(max-width:560px){.task-reminder-card{right:16px;bottom:16px}.reminder-preference-grid{grid-template-columns:minmax(0,1fr)}.reminder-task-actions{flex-direction:column}}

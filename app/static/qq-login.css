@@ -146,6 +146,33 @@
 .qq-quick-select button {
   flex-shrink:0
 }
+/* QQ reception settings match the compact WeChat selection dialog. */
+#qqForm .dialog-title {margin-bottom:6px}
+#qqForm .dialog-title h2 {font-size:18px;font-weight:600}
+#qqForm .dialog-copy {font-size:12px;line-height:1.7;margin:0 0 18px}
+.qq-reception-toggle,.qq-group-heading {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.qq-reception-toggle {margin-bottom:18px}
+.qq-reception-toggle .checkbox-label {margin:0}
+.qq-group-heading label {margin:0}
+#qqGroupCount {font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+#qqAccount,#qqToken,#qqGroups {border-radius:12px}
+#qqForm .group-manual {margin:12px 0 18px}
+#qqForm .group-manual summary {font-size:12px}
+#qqToken {margin-bottom:0}
+#qqTokenStatus {font-size:11px;margin:6px 0 10px}
+#generateQQToken,#showQQToken {font-size:12px;min-height:32px;border-radius:999px;padding:4px 12px}
+#qqForm .settings-actions {position:static;justify-content:space-between;align-items:center;border:0;margin-top:22px;padding:0;gap:12px}
+#qqForm .settings-actions .button {flex:none;min-height:38px;border-radius:999px;padding:8px 20px;font-size:13px}
+#qqForm #clearQQGroups {border:0;background:transparent;color:var(--muted);padding:8px 0}
+#qqForm #clearQQGroups:hover:not(:disabled) {color:var(--ink)}
+#qqForm .connection-guide {margin-top:18px;padding:12px 14px;border-radius:12px;background:var(--paper)}
+#qqForm .connection-guide summary {display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--ink);margin-bottom:0}
+#qqForm .connection-guide summary::before {display:none}
+#qqForm .connection-guide summary::after {content:'';width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);margin:0 3px 4px;flex:none}
+#qqForm .connection-guide[open] summary::after {transform:rotate(225deg);margin-bottom:0}
+@media(max-width:480px) {
+  #qqForm .dialog-title h2 {font-size:18px}
+}
 @media(max-width:600px) {
   .qq-login-dialog .settings-form {
     padding:24px 18px
