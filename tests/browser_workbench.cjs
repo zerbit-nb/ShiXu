@@ -31,7 +31,10 @@ const {spawn,spawnSync}=require('node:child_process');
 
   await page.locator('[data-detail-action=edit]').click();await page.locator('#editDialog [data-field=title]').fill('提交软件工程项目阶段报告（已核对）');await page.getByRole('button',{name:'保存修改',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#taskDetailTitle')?.textContent.includes('已核对'));
   assert.equal((await json('/api/tasks/'+id+'/sources')).messages.length,2);
-  await page.locator('#closeTaskDetail').click();await first.locator('[data-task-action=complete]').click();await page.waitForFunction(id=>!document.querySelector('#taskList [data-task-id="'+id+'"]'),id);assert.ok(await page.locator('#taskDetail').isHidden());
+  await page.locator('#closeTaskDetail').click();
+  await page.waitForFunction(id=>document.activeElement?.closest('[data-task-id]')?.dataset.taskId===id,id);
+  assert.ok(await page.locator('#taskSearchPanel').isHidden(),'closing edited task returns focus to its replacement row without opening suggestions');
+  await first.locator('[data-task-action=complete]').click();await page.waitForFunction(id=>!document.querySelector('#taskList [data-task-id="'+id+'"]'),id);assert.ok(await page.locator('#taskDetail').isHidden());
   await page.locator('[data-view=completed]').click();await page.locator('#taskList [data-task-id="'+id+'"]').waitFor();await screenshot('after-completed');await page.locator('#taskList [data-task-id="'+id+'"] .task-open').click();await page.locator('[data-detail-action=reopen]').click();await page.waitForFunction(()=>document.querySelector('#taskDetail .detail-status')?.textContent==='未完成');assert.equal((await json('/api/tasks/'+id+'/sources')).messages.length,2);await page.locator('#closeTaskDetail').click();
   await page.locator('[data-view=tasks]').click();await page.locator('#taskList .task-row').filter({hasText:'整理本周阅读笔记'}).locator('.task-open').click();await page.getByText('暂无关联原文（手动创建）',{exact:true}).waitFor();await page.locator('#closeTaskDetail').click();
   await page.locator('[data-view=upcoming]').click();await page.waitForFunction(()=>!document.querySelector('#taskList').hasAttribute('aria-busy'));await page.locator('#taskList .task-row').first().waitFor();assert.equal(await page.locator('#taskList [data-task-group=overdue]').count(),0);await screenshot('after-upcoming');

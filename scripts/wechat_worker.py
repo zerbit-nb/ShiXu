@@ -6,8 +6,10 @@ from pathlib import Path
 import queue
 import sys
 import threading
+from datetime import datetime, timezone
 from app.services.wechat_reader import Reader, SourceError, load_module, install_io_guard
 from app.services.wechat_monitor import SavedConfig, MAX_FRAME
+from app.services.wechat_groups import group_profiles
 
 
 def run(private):
@@ -40,17 +42,19 @@ def run(private):
         except queue.Empty:return None
         if value.get('type')=='stop':raise SystemExit(0)
         return value
-    def acknowledge(after):
-        value=command(90)
-        if value is None or value.get('type')!='ack' or value.get('cursors')!=after:
-            raise SourceError('invalid_ack')
     reader=None;phase='load'
     with open(os.devnull,'w') as sink,contextlib.redirect_stdout(sink),contextlib.redirect_stderr(sink):
         try:
             module,quiet=load_module()
             install_io_guard(private)
             reader=Reader(module,quiet,profile,private/'cache')
-            cursors=None;handshake=False;retries=0
+            if initial.get('mode')=='groups':
+                phase='connect'
+                if not reader.ensure(discovery=True):raise SourceError('not_logged_in')
+                emit('groups',groups=reader.available_groups)
+                return
+            cursors={};handshakes=set();retries=0;history_open=set()
+            profiles=group_profiles(profile)
             while True:
                 try:
                     phase='connect'
@@ -60,22 +64,62 @@ def run(private):
                         if retries>=30:raise SourceError('offline_retry_limit')
                         if command(5) is not None:raise SourceError('unexpected_command')
                         continue
-                    if not handshake:
-                        emit('hello',identity=reader.identity)
+                    activity=False
+                    for group_id in profiles:
+                        tagged={'group_id':group_id} if group_id else {}
+                        if group_id not in handshakes:
+                            identity=reader.identities[group_id] if group_id else reader.identity
+                            emit('hello',identity=identity,**tagged)
+                            reply=command(90)
+                            if reply is None or reply.get('type')!='resume' or reply.get('group_id','')!=group_id:
+                                raise SourceError('invalid_resume')
+                            cursors[group_id]=reply['cursors'];handshakes.add(group_id)
+                            if reply.get('history_since'):
+                                history_open.add(group_id)
+                                # Snapshot the live baseline BEFORE scanning history.
+                                # Messages arriving during the scan are read after it.
+                                _,boundary=reader.read(None,group_id=group_id) if group_id else reader.read(None)
+                                until=datetime.now(timezone.utc).isoformat()
+                                emit('history_started',until=until,**tagged)
+                                history_cursors={};complete=False
+                                for _ in range(313):
+                                    rows,after=reader.history(history_cursors,boundary,reply['history_since'],until,group_id=group_id)
+                                    if not rows:
+                                        complete=True;break
+                                    emit('history_batch',rows=rows,**tagged)
+                                    ack=command(90)
+                                    if ack is None or ack.get('type')!='history_ack' or ack.get('group_id','')!=group_id:
+                                        raise SourceError('invalid_ack')
+                                    history_cursors=after
+                                emit('history_done',complete=complete,**tagged)
+                                history_open.discard(group_id)
+                                if cursors[group_id] is None:
+                                    emit('baseline',cursors=boundary,**tagged)
+                                    ack=command(90)
+                                    if ack is None or ack.get('type')!='ack' or ack.get('cursors')!=boundary or ack.get('group_id','')!=group_id:
+                                        raise SourceError('invalid_ack')
+                                    cursors[group_id]=boundary
+                        phase='query'
+                        before=cursors[group_id]
+                        rows,after=reader.read(before,group_id=group_id) if group_id else reader.read(before)
+                        if before is None:
+                            emit('baseline',cursors=after,**tagged)
+                        elif rows:
+                            emit('batch',before=before,rows=rows,after=after,**tagged)
+                        else:continue
+                        activity=True
+                        phase='ack'
                         reply=command(90)
-                        if reply is None or reply.get('type')!='resume':raise SourceError('invalid_resume')
-                        cursors=reply['cursors'];handshake=True
-                    phase='query'
-                    rows,after=reader.read(cursors)
-                    if cursors is None:
-                        emit('baseline',cursors=after);acknowledge(after);cursors=after
-                    elif rows:
-                        emit('batch',before=cursors,rows=rows,after=after)
-                        acknowledge(after);cursors=after
-                    else:emit('status',state='listening',reason=None)
+                        if reply is None or reply.get('type')!='ack' or reply.get('cursors')!=after or reply.get('group_id','')!=group_id:
+                            raise SourceError('invalid_ack')
+                        cursors[group_id]=after
+                    if not activity:emit('status',state='listening',reason=None)
                     retries=0
                     if command(2) is not None:raise SourceError('unexpected_command')
                 except SourceError as exc:
+                    for pending_group in history_open:
+                        emit('history_done',complete=False,**({'group_id':pending_group} if pending_group else {}))
+                    history_open.clear()
                     reason=exc.args[0]
                     if reason not in {'process_changed','snapshot_warning','not_logged_in','database_root_not_found','keys_incomplete','contact_missing'}:
                         raise

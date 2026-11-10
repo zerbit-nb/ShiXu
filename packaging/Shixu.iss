@@ -1,4 +1,4 @@
-﻿#ifndef Payload
+#ifndef Payload
   #error Pass /DPayload=absolute-stage-path
 #endif
 #ifndef Output
@@ -8,8 +8,8 @@
 [Setup]
 AppId={{9A26F6DF-9213-4D37-8AB1-0C826146AC18}
 AppName=拾序
-AppVersion=1.1.0
-AppVerName=拾序 1.1.0
+AppVersion=1.2.0
+AppVerName=拾序 1.2.0
 AppPublisher=Shixu Project
 DefaultDirName={localappdata}\Programs\Shixu
 DefaultGroupName=拾序
@@ -20,7 +20,7 @@ MinVersion=10.0
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir={#Output}
-OutputBaseFilename=Shixu-1.1.0-win-x64-Setup
+OutputBaseFilename=Shixu-1.2.0-win-x64-Setup
 SetupIconFile={#Payload}\assets\brand\windows\shixu.ico
 UninstallDisplayIcon={app}\assets\brand\windows\shixu.ico
 Compression=lzma2
@@ -29,7 +29,7 @@ WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
 InfoBeforeFile={#SourcePath}FIRST-RUN.txt
-VersionInfoVersion=1.1.0.0
+VersionInfoVersion=1.2.0.0
 SetupLogging=yes
 
 [Languages]

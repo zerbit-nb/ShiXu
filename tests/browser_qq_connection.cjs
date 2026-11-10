@@ -21,7 +21,7 @@ const {spawn,spawnSync}=require('node:child_process');
   assert.equal((await get('/api/qq/config')).account_id,'23456789');
   let report=await get('/test/reporting');assert.equal(report.ours.length,1);assert.ok(report.other_client_preserved&&report.ours[0].token_matches&&report.ours[0].enable);
   assert.equal(report.ours[0].url,base+'/api/qq/events');assert.equal(report.ours[0].format,'array');
-  await page.locator('#qqSettingsBtn').click();await page.locator('#qqGroups').fill('87654321\n99887766');await page.locator('#qqToken').fill('unsaved-test-token-1234567890');await page.locator('#closeQQSettings').click();
+  await page.locator('#qqSettingsBtn').click();await page.locator('.group-manual summary').click();await page.locator('#qqGroups').fill('87654321\n99887766');await page.locator('#qqToken').fill('unsaved-test-token-1234567890');await page.locator('#closeQQSettings').click();
   await page.locator('#qqLoginBtn').click();await page.waitForFunction(()=>document.querySelector('#qqLoginHint').textContent.includes('接收配置已同步'));
   await control({account:'34567890'});
   await page.waitForFunction(()=>document.querySelector('#qqAccount').value==='34567890');
@@ -47,7 +47,7 @@ const {spawn,spawnSync}=require('node:child_process');
   for(const width of [390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow '+width);}
   fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/qq-account-sync.png',fullPage:true});
   assert.deepEqual(errors,[]);
-  console.log('PASS: automatic account switch/persistence, per-account HTTP setup, correct callback/format/token, preserved groups/unsaved edits/other transports, honest failure/retry, idempotence, reload, two widths, clean console. Simulated NapCat only.');
+  console.log('PASS: automatic account switch/persistence, per-account HTTP setup, correct callback/format/token, preserved receiver settings/unsaved token/other transports, honest failure/retry, idempotence, reload, two widths, clean console. Simulated NapCat only.');
  }finally{
   if(browser)await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));
   assert.equal(path.dirname(path.resolve(folder)),runtimeRoot);

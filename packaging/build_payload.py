@@ -11,7 +11,7 @@ from napcat_payload import copy_napcat
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_REQUIREMENTS = ('requirements.txt', 'requirements-desktop.txt', 'requirements-wechat.txt')
 EXCLUDED_DISTRIBUTIONS = {'pytest', 'iniconfig', 'pluggy', 'pygments'}
-SCRIPTS = ('desktop.py', 'desktop_window.py', 'desktop_tray.py', 'launch.py', 'wechat_worker.py', 'diagnose_wechat.py', 'diagnose_qq.py', 'stop_napcat.ps1', 'verify_qq.ps1', 'prepare_qq.ps1', 'exit_qq.py')
+SCRIPTS = ('desktop.py', 'desktop_window.py', 'desktop_tray.py', 'desktop_reminders.py', 'launch.py', 'wechat_worker.py', 'diagnose_wechat.py', 'diagnose_qq.py', 'stop_napcat.ps1', 'verify_qq.ps1', 'prepare_qq.ps1', 'exit_qq.py')
 IGNORE = shutil.ignore_patterns('__pycache__', '*.pyc', '*.pyo', 'site-packages', 'test', 'tests', 'idlelib', 'tkinter', 'turtledemo', 'ensurepip')
 
 
@@ -80,7 +80,7 @@ def build(destination, napcat_shell):
         if file.name in {'config.local.json', 'qq.local.json', 'wechat.local.json'} or relative.startswith(('data/', 'runtime/')):
             raise ValueError('Private file detected in payload: ' + relative)
         entries.append({'path': relative, 'bytes': file.stat().st_size, 'sha256': hashlib.sha256(file.read_bytes()).hexdigest()})
-    manifest = {'app': 'Shixu', 'version': '1.1.0', 'napcat': napcat, 'python': sys.version.split()[0],
+    manifest = {'app': 'Shixu', 'version': '1.2.0', 'napcat': napcat, 'python': sys.version.split()[0],
                 'packages': packages, 'files': entries, 'private_data_included': False}
     (destination / 'release-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
     (destination / 'THIRD-PARTY-NOTICES.txt').write_text(

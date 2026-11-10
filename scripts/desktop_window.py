@@ -142,6 +142,8 @@ def open_window(view, instance=None):
     controller = TrayController(window, tray, BackendStopper(ROOT))
     stopped = threading.Event()
     visibility = WindowVisibilityBridge(window, stopped)
+    from scripts.desktop_reminders import DesktopReminders
+    reminders = DesktopReminders(window, tray, visibility, stopped, URL)
     worker = None
 
     def closing():
@@ -156,6 +158,7 @@ def open_window(view, instance=None):
         visibility.attach()
         try:
             tray.install(controller)
+            reminders.attach()
         except Exception:
             # Keep a native exit menu available if tray initialization fails.
             from System.Windows.Forms import MenuStrip, ToolStripMenuItem
@@ -189,6 +192,7 @@ def open_window(view, instance=None):
             worker.join(timeout=2)
         if visibility.worker is not None:
             visibility.worker.join(timeout=2)
+        reminders.join()
         tray.dispose()
 
 

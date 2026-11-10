@@ -18,7 +18,7 @@ const {spawn,spawnSync}=require('node:child_process');
   const nav=page.locator('[data-view=qq]');await nav.click();await page.waitForFunction(()=>document.querySelector('#qqStatus').textContent==='已停用');
   assert.match(await page.locator('#qqMessages').innerText(),/还没有收到消息/);
   await page.locator('#qqSettingsBtn').click();await page.locator('#qqEnabled').check();await page.locator('#saveQQ').click();await page.waitForFunction(()=>document.querySelector('#qqError').textContent.length>0);assert.equal(errors.pop(),'Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)');
-  await page.locator('#qqAccount').fill('12345678');await page.locator('#qqGroups').fill('87654321');
+  await page.locator('#qqAccount').fill('12345678');await page.locator('.group-manual summary').click();await page.locator('#qqGroups').fill('87654321');
   await page.locator('#generateQQToken').click();assert.equal((await page.locator('#qqToken').inputValue()).length,48);await page.locator('#showQQToken').click();assert.equal(await page.locator('#qqToken').getAttribute('type'),'text');
   await page.locator('#qqToken').fill(token);await page.locator('#saveQQ').click();await page.waitForFunction(()=>document.querySelector('#qqStatus').textContent==='已启用'&&document.querySelector('#qqToken').value==='');assert.equal(await page.locator('#qqToken').getAttribute('type'),'password');assert.ok(!(JSON.stringify(await get('/api/qq/config'))).includes(token));
   assert.equal((await send(1,'测试原文 <img src=x onerror=alert(1)>')).status,204);assert.equal((await send(1)).status,204);assert.equal((await send(2,'过滤消息',11111111)).status,204);

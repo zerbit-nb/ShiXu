@@ -9,7 +9,10 @@ const {spawn,spawnSync}=require('node:child_process');
  try{
   let ready=false;for(let i=0;i<80;i++){try{ready=(await fetch(base+'/api/health')).ok;}catch{}if(ready)break;await new Promise(r=>setTimeout(r,150));}assert.ok(ready);
   browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()!=='GET')writes.push(r.url());});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
+  // The foreground reminder poll claims due reminders independently of search.
+  // Keep rejecting every other write, including all task/message mutations.
+  page.on('request',r=>{if(r.method()!=='GET'&&!(r.method()==='POST'&&new URL(r.url()).pathname==='/api/reminders/claim'))writes.push(r.url());});
   await page.goto(base);await page.locator('.task-row').first().waitFor();
   const out='runtime/task-search-review';fs.mkdirSync(out,{recursive:true});const search=page.locator('#taskSearch'),panel=page.locator('#taskSearchPanel'),options=()=>page.locator('#taskSearchResults [role=option]');
   if(process.env.CAMPUSFLOW_SEARCH_BASELINE){await page.screenshot({path:out+'/before.png'});console.log('PASS: baseline search captured');return;}

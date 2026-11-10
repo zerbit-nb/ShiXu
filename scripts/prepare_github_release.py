@@ -12,7 +12,7 @@ FILES = ('.gitignore', '.gitattributes', 'README.md', 'LICENSE.md', 'NOTICE',
          'THIRD_PARTY_NOTICES.md', 'requirements.txt', 'requirements-desktop.txt',
          'requirements-wechat.txt', 'pytest.ini', 'StartCampusFlow.cmd',
          'StartCampusFlowDesktop.vbs', 'docs/github-first-release.md',
-         'docs/usage-v1.md', 'docs/release-v1.0.0.md', 'docs/release-v1.1.0.md')
+         'docs/usage-v1.md', 'docs/release-v1.0.0.md', 'docs/release-v1.1.0.md', 'docs/release-v1.2.0.md')
 TREES = ('app', 'scripts', 'tests', 'packaging', 'third_party/wechat_db', 'docs/images',
          'assets/brand/windows')
 SUFFIXES = {'.py', '.js', '.cjs', '.css', '.html', '.svg', '.json', '.md',
@@ -56,7 +56,7 @@ def export(destination):
     public = changelog.split('## 拾序 0.5.0-preview.10')[0].rstrip() + '\n'
     (destination / 'CHANGELOG.md').write_text(public, encoding='utf-8')
     entries.append({'path': 'CHANGELOG.md', 'sha256': hashlib.sha256((destination / 'CHANGELOG.md').read_bytes()).hexdigest()})
-    report = {'version': '1.1.0', 'files': entries, 'old_git_history_included': False,
+    report = {'version': '1.2.0', 'files': entries, 'old_git_history_included': False,
               'credential_pattern_scan': 'passed; heuristic only, manual review still required'}
     (destination.parent / 'source-audit.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({'source': str(destination), 'files': len(entries), 'bytes': sum(p.stat().st_size for p in destination.rglob('*') if p.is_file())}))

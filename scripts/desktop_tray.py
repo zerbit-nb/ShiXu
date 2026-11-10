@@ -73,6 +73,11 @@ class WindowsTray:
             self.form.Show();self.form.WindowState=FormWindowState.Normal
             self.form.Activate();self.form.BringToFront()
         self.dispatch(show)
+    def notify_reminders(self,count):
+        if not self.ready or self.icon is None:return False
+        from System.Windows.Forms import ToolTipIcon
+        self.icon.ShowBalloonTip(8000,'拾序 · 待办提醒',str(count)+' 项待办需要关注，点击查看。',ToolTipIcon.Info)
+        return True
     def confirm(self):
         from System.Windows.Forms import MessageBox,MessageBoxButtons,MessageBoxIcon,DialogResult
         return MessageBox.Show(self.form,EXIT_MESSAGE,'退出 拾序',MessageBoxButtons.OKCancel,MessageBoxIcon.Question)==DialogResult.OK
