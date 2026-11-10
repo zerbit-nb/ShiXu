@@ -9,7 +9,9 @@ def test_default_paused_controls_and_no_sensitive_input_echo(tmp_path):
         assert c.post('/api/wechat/start').status_code==409
         assert c.put('/api/wechat/config',json={'group_name':'测试群','account_alias':'private-account'}).status_code==200
         response=c.get('/api/wechat/config')
-        assert response.json()['has_account'] and 'private-account' not in response.text
+        assert response.json()['has_account'] and response.json()['account_alias']=='private-account'
+        assert response.headers['cache-control']=='no-store'
+        assert 'private-account' not in c.get('/api/wechat/status').text
         bad=c.put('/api/wechat/config',json={'group_name':'','account_alias':'private-account'})
         assert bad.status_code==422 and 'private-account' not in bad.text
         assert c.post('/api/wechat/stop').json()['state']=='paused'

@@ -39,6 +39,26 @@ def setup(tmp_path):
     yield db,worker,model
     db.close()
 
+
+def test_local_permission_resets_with_parent_and_cannot_be_enabled_alone(setup):
+    db, worker, _ = setup
+    assert worker.configure(True, True)['allow_local'] is True
+    disabled = worker.configure(False, True)
+    assert disabled['enabled'] is False
+    assert disabled['allow_local'] is False
+    assert worker.configure(False, True)['allow_local'] is False
+    assert db.conn.execute('SELECT allow_local FROM automation_settings').fetchone()[0] == 0
+    assert worker.configure(True, False)['state'] == 'local_disabled'
+
+
+def test_legacy_disabled_local_permission_cleared_on_restart(setup):
+    db, worker, model = setup
+    db.conn.execute('UPDATE automation_settings SET enabled=0,allow_local=1')
+    db.conn.commit()
+    restarted = AutoOrganizer(db, worker.settings, lambda: model, asyncio.Lock())
+    assert restarted.public()['allow_local'] is False
+    assert db.conn.execute('SELECT allow_local FROM automation_settings').fetchone()[0] == 0
+
 def test_new_messages_only_local_permission_atomic_tasks_notices_and_duplicates(setup):
     db,w,m=setup
     old=message(db)

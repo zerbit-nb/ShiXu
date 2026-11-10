@@ -40,3 +40,76 @@ worker.run(Path('.'))
     messages=[json.loads(line) for line in result.stdout.splitlines()]
     assert [m['type'] for m in messages]==['hello','batch']
     assert messages[1]['rows'][0]['content']==text
+
+
+@pytest.mark.parametrize('bad_ack',[False,True])
+def test_multi_group_worker_routes_each_cursor_and_rejects_cross_group_ack(bad_ack):
+    code=r'''
+from pathlib import Path
+import scripts.wechat_worker as worker
+class Reader:
+    identities={g:{'account':'a'*64,'group':'b'*64} for g in ['1@chatroom','2@chatroom']}
+    def __init__(self,*args):pass
+    def ensure(self):return True
+    def read(self,cursors,group_id=None):
+        assert cursors=={'message_0.db':3 if group_id=='1@chatroom' else 7}
+        n=cursors['message_0.db']+1
+        return [dict(shard='message_0.db',local_id=n,kind='text',content=group_id,sender=None,sent_at=None)],{'message_0.db':n}
+    def close(self):pass
+worker.Reader=Reader
+worker.load_module=lambda:(None,None)
+worker.install_io_guard=lambda private:None
+worker.run(Path('.'))
+'''
+    frames=[dict(type='configure',generation='test',profile={'alias_hash':'c'*64,
+            'groups':[{'id':'1@chatroom','name':'群一'},{'id':'2@chatroom','name':'群二'}]}),
+            dict(type='resume',group_id='1@chatroom',cursors={'message_0.db':3}),
+            dict(type='ack',group_id='2@chatroom' if bad_ack else '1@chatroom',cursors={'message_0.db':4})]
+    if not bad_ack:
+        frames.extend([dict(type='resume',group_id='2@chatroom',cursors={'message_0.db':7}),
+                       dict(type='ack',group_id='2@chatroom',cursors={'message_0.db':8}),dict(type='stop')])
+    payload=''.join(json.dumps(f)+'\n' for f in frames).encode()
+    result=subprocess.run([sys.executable,'-B','-c',code],input=payload,capture_output=True,
+                          cwd=Path(__file__).resolve().parents[1],timeout=15)
+    assert result.returncode==0
+    messages=[json.loads(line) for line in result.stdout.splitlines()]
+    if bad_ack:
+        assert messages[-1]['type']=='error' and messages[-1]['reason']=='invalid_ack'
+    else:
+        assert [m['group_id'] for m in messages if m['type']=='batch']==['1@chatroom','2@chatroom']
+        assert [m['after']['message_0.db'] for m in messages if m['type']=='batch']==[4,8]
+
+
+def test_history_snapshot_precedes_live_baseline_and_new_messages_are_not_skipped():
+    code=r'''
+from pathlib import Path
+import scripts.wechat_worker as worker
+class Reader:
+    identity={'account':'a'*64,'group':'b'*64}
+    def __init__(self,*args):pass
+    def ensure(self):return True
+    def read(self,cursors):
+        if cursors is None:return [],{'message_0.db':5}
+        assert cursors=={'message_0.db':5}
+        return [dict(shard='message_0.db',local_id=6,kind='text',content='new',sender=None,sent_at=None)],{'message_0.db':6}
+    def history(self,cursors,boundary,since,until,group_id=None):
+        assert boundary=={'message_0.db':5}
+        if cursors:return [],cursors
+        return [dict(shard='message_0.db',local_id=3,kind='text',content='old',sender=None,sent_at='2026-11-09T09:00:00+08:00')],{'message_0.db':3}
+    def close(self):pass
+worker.Reader=Reader
+worker.load_module=lambda:(None,None)
+worker.install_io_guard=lambda private:None
+worker.run(Path('.'))
+'''
+    frames=[dict(type='configure',generation='test',profile={'group_name':'测试群','alias_hash':'c'*64}),
+            dict(type='resume',cursors=None,history_since='2026-11-09T00:00:00+08:00'),
+            dict(type='history_ack'),dict(type='ack',cursors={'message_0.db':5}),
+            dict(type='ack',cursors={'message_0.db':6}),dict(type='stop')]
+    result=subprocess.run([sys.executable,'-B','-c',code],input=''.join(json.dumps(f)+'\n' for f in frames).encode(),
+                          capture_output=True,cwd=Path(__file__).resolve().parents[1],timeout=15)
+    assert result.returncode==0,result.stderr
+    messages=[json.loads(line) for line in result.stdout.splitlines()]
+    assert [m['type'] for m in messages]==['hello','history_started','history_batch','history_done','baseline','batch']
+    assert messages[-2]['cursors']=={'message_0.db':5}
+    assert messages[-1]['rows'][0]['content']=='new'
